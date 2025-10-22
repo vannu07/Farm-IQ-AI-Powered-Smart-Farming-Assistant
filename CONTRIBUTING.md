@@ -54,6 +54,21 @@ Since we deal with AI models, stability and accuracy are critical. Any code cont
 
 Please adhere to standard Python best practices (PEP 8), and keep all dependencies updated in your `requirements.txt` (or `pyproject.toml`).
 
+### Local Development Setup & Pre-commit
+
+To ensure code quality and consistent formatting, this project uses `pre-commit` hooks. These hooks run automatically every time you make a commit to check for linting errors and reformat your code.
+
+#### One-Time Setup
+
+After cloning the repository and setting up your virtual environment, please install the development dependencies and then install the pre-commit hooks:
+
+```bash
+# Install all development requirements, including pre-commit
+pip install -r requirements-dev.txt
+
+# Install the git hooks
+pre-commit install
+
 ***
 
 ## 🤝 Submitting Your Pull Request (PR)

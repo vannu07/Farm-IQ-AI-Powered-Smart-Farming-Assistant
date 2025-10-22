@@ -26,6 +26,9 @@ sphinx-rtd-theme==2.0.0
 ipython==8.18.1
 jupyter==1.0.0
 
+# Pre-commit Hooks
+pre-commit
+
 # Security
 bandit==1.7.5
 safety==2.3.5
