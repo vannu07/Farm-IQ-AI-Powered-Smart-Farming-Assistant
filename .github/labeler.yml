@@ -1,20 +1,27 @@
 documentation:
-  - 'docs/**'
+  - changed-files:
+      - any-glob-to-any-file: 'docs/**'
 
 ml-model:
-  - 'notebooks/**'
+  - changed-files:
+      - any-glob-to-any-file: 'notebooks/**'
 
 ci-cd:
-  - '.github/**'
+  - changed-files:
+      - any-glob-to-any-file: '.github/**'
 
 frontend:
-  - 'frontend/**'
+  - changed-files:
+      - any-glob-to-any-file: 'frontend/**'
 
 backend:
-  - 'backend/**'
+  - changed-files:
+      - any-glob-to-any-file: 'backend/**'
 
 python:
-  - '*.py'
+  - changed-files:
+      - any-glob-to-any-file: '*.py'
 
 jupyter-notebook:
-  - '*.ipynb'
+  - changed-files:
+      - any-glob-to-any-file: '*.ipynb'
