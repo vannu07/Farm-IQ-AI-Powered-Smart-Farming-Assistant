@@ -1,20 +1,20 @@
-docs/**:
-  - documentation
+documentation:
+  - 'docs/**'
 
-notebooks/**:
-  - ml-model
+ml-model:
+  - 'notebooks/**'
 
-.github/**:
-  - ci-cd
+ci-cd:
+  - '.github/**'
 
-frontend/**:
-  - frontend
+frontend:
+  - 'frontend/**'
 
-backend/**:
-  - backend
+backend:
+  - 'backend/**'
 
-"*.py":
-  - python
+python:
+  - '*.py'
 
-"*.ipynb":
-  - jupyter-notebook
+jupyter-notebook:
+  - '*.ipynb'
