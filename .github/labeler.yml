@@ -20,8 +20,8 @@ backend:
 
 python:
   - changed-files:
-      - any-glob-to-any-file: '*.py'
+      - any-glob-to-any-file: '**/*.py'
 
 jupyter-notebook:
   - changed-files:
-      - any-glob-to-any-file: '*.ipynb'
+      - any-glob-to-any-file: '**/*.ipynb'
