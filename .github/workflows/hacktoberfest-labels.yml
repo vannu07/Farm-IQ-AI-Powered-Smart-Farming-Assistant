@@ -13,15 +13,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Add Hacktoberfest label to new PRs
+        # Runs on opened, reopened, and synchronize (new commits) events
         if: github.event.action != 'closed'
         uses: actions-ecosystem/action-add-labels@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          labels: ['hacktoberfest']
+          labels: "hacktoberfest"
 
       - name: Add Hacktoberfest Accepted label to merged PRs
-        if: github.event.action == 'closed' && github.event.pull_request.merged == true
+        # Runs ONLY when the action is 'closed' AND the 'merged' flag is true
+        # The condition is wrapped in ${{ ... }} for robust evaluation
+        if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true }}
         uses: actions-ecosystem/action-add-labels@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          labels: ['hacktoberfest-accepted']
+          labels: "hacktoberfest-accepted"
