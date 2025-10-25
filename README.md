@@ -51,7 +51,7 @@ Farm-IQ is an intelligent farming assistant that leverages Machine Learning and 
 *AI-powered plant health diagnosis*
 
 **Input:** Plant leaf images  
-**Output:** Disease identification & treatment  
+**Output:** Disease identification, confidence score & treatment  
 **Coverage:** 14+ crop varieties  
 
 </td>
@@ -493,3 +493,4 @@ This project builds upon the excellent foundation provided by:
 [![Watchers](https://img.shields.io/github/watchers/vannu07/Farm-IQ-AI-Powered-Smart-Farming-Assistant?style=social)](https://github.com/vannu07/Farm-IQ-AI-Powered-Smart-Farming-Assistant/watchers)
 
 </div>
+

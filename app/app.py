@@ -152,25 +152,30 @@ def weather_fetch(city_name):
 
 def predict_image(img_bytes, model=disease_model):
     """
-    Transforms image to tensor and predicts disease label.
+    Transforms image to tensor and predicts disease label with confidence score.
     """
     if model is None:
         raise RuntimeError("Disease model is not loaded.")
+
     transform = transforms.Compose(
         [
             transforms.Resize(256),
             transforms.ToTensor(),
         ]
     )
+
     image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
     img_t = transform(image)
     img_u = torch.unsqueeze(img_t, 0)
 
-    # Get predictions from model
-    yb = model(img_u)
-    _, preds = torch.max(yb, dim=1)
+    with torch.no_grad():
+        yb = model(img_u)
+        probs = torch.nn.functional.softmax(yb, dim=1)
+        top_prob, preds = torch.max(probs, dim=1)
+
     prediction_index = preds[0].item()
-    return disease_classes[prediction_index]
+    confidence = top_prob[0].item() * 100
+    return disease_classes[prediction_index], round(confidence, 2)
 
 
 # ===============================================================================================
@@ -332,7 +337,7 @@ def disease_prediction():
         # --- CHANGE: Use a proper try-except block
         try:
             img_bytes = file.read()
-            prediction_class = predict_image(img_bytes)
+            prediction_class, confidence = predict_image(img_bytes)
             remedy = Markup(
                 str(
                     disease_dic.get(
@@ -341,7 +346,11 @@ def disease_prediction():
                 )
             )
             return render_template(
-                "disease-result.html", prediction=remedy, title=title
+                "disease-result.html",
+                prediction=remedy,
+                confidence=confidence,
+                prediction_class=prediction_class,
+                title=title,
             )
 
         except Exception as e:
