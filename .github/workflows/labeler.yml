@@ -1,5 +1,10 @@
 name: "Auto Labeler"
 
+permissions:
+  contents: read        # allows reading the repository
+  issues: write         # needed to add labels to issues
+  pull-requests: write  # needed to add labels to pull requests
+
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
@@ -12,6 +17,7 @@ on:
 jobs:
   label:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -20,6 +26,7 @@ jobs:
         uses: actions/labeler@v5
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+          configuration-path: .github/labeler.yml
 
       - name: Label issues by title or keywords
         if: github.event_name == 'issues'

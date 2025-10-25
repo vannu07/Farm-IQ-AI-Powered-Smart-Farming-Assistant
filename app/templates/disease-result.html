@@ -4,7 +4,13 @@
 <div class="container result-container" data-aos="zoom-in" data-aos-duration="1000">
   <div class="result-card">
     <i class="fa fa-bug recommendation-icon"></i>
-    <h1>Detected Disease: <i>{{ prediction }}</i></h1>
+    <h1>Detected Disease:</h1>
+    <h2><i>{{ prediction_class }}</i></h2>
+    
+    <h3>Confidence: <span style="color: green;">{{ confidence }}%</span></h3>
+
+    <h4>Remedy:</h4>
+    <p>{{ prediction | safe }}</p>
     <a href="{{ url_for('disease_prediction') }}" class="btn btn-light back-btn">Try Another Image</a>
   </div>
 </div>
