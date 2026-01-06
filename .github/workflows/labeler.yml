@@ -41,8 +41,8 @@ jobs:
 
             // Bug and Enhancement labels
             if (title.includes("bug") || body.includes("bug")) labelsToAdd.push("bug");
-            if (title.includes("feature") || title.includes("enhancement")) labelsToAdd.push("enhancement");
-            if (title.includes("docs") || title.includes("documentation")) labelsToAdd.push("documentation");
+            if (title.includes("feature") || title.includes("enhancement") || body.includes("feature") || body.includes("enhancement")) labelsToAdd.push("enhancement");
+            if (title.includes("docs") || title.includes("documentation") || body.includes("docs") || body.includes("documentation")) labelsToAdd.push("documentation");
             
             // Question and Help labels
             if (title.includes("question") || title.includes("how to") || title.includes("help")) labelsToAdd.push("question");

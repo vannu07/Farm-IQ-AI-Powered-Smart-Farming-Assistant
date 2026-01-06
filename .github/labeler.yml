@@ -49,8 +49,8 @@ testing:
 
 configuration:
   - changed-files:
-      - any-glob-to-any-file: '**/*.yml'
-      - any-glob-to-any-file: '**/*.yaml'
+      - any-glob-to-any-file: ['**/*.yml', '!.github/workflows/**']
+      - any-glob-to-any-file: ['**/*.yaml', '!.github/workflows/**']
       - any-glob-to-any-file: '**/*.json'
       - any-glob-to-any-file: '.env*'
       - any-glob-to-any-file: '**/*config*'
