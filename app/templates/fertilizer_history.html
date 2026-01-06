@@ -1,0 +1,118 @@
+{% extends 'layout.html' %}
+{% block body %}
+
+<style>
+    .history-container {
+        margin-top: 120px;
+        margin-bottom: 50px;
+    }
+    
+    .history-item {
+        background: white;
+        padding: 25px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        border-left: 5px solid #FF6F00;
+        transition: transform 0.3s ease;
+    }
+    
+    .history-item:hover {
+        transform: translateX(5px);
+    }
+    
+    .pagination-container {
+        margin-top: 30px;
+        text-align: center;
+    }
+</style>
+
+<div class="container history-container" data-aos="fade-up">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h1 style="color: #FF6F00; font-weight: bold;">
+                <i class="fa fa-tint"></i> Fertilizer Recommendation History
+            </h1>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary mt-3">
+                <i class="fa fa-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    {% if predictions %}
+    {% for pred in predictions %}
+    <div class="history-item" data-aos="fade-up" data-aos-delay="{{ loop.index * 50 }}">
+        <div class="row">
+            <div class="col-md-8">
+                <h3 style="color: #FF6F00;">{{ pred.crop_name }}</h3>
+                <p class="text-muted mb-2">
+                    <i class="fa fa-clock-o"></i> {{ pred.timestamp.strftime('%B %d, %Y at %I:%M %p') }}
+                </p>
+                <p class="mb-1">
+                    <strong>Soil Nutrients:</strong> 
+                    <span class="badge badge-success">N: {{ pred.nitrogen }}</span>
+                    <span class="badge badge-info">P: {{ pred.phosphorus }}</span>
+                    <span class="badge badge-warning">K: {{ pred.potassium }}</span>
+                </p>
+            </div>
+            <div class="col-md-4 text-right">
+                <p class="mb-1">
+                    <strong>Recommendation:</strong><br>
+                    <span class="badge badge-warning" style="font-size: 1rem; padding: 10px;">
+                        {{ pred.recommendation_key }}
+                    </span>
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <div class="pagination-container">
+        <nav aria-label="Page navigation">
+            <ul class="pagination justify-content-center">
+                {% if pagination.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('fertilizer_history', page=pagination.prev_num) }}">Previous</a>
+                </li>
+                {% endif %}
+                
+                {% for page_num in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+                    {% if page_num %}
+                        {% if page_num == pagination.page %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_num }}</span>
+                        </li>
+                        {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('fertilizer_history', page=page_num) }}">{{ page_num }}</a>
+                        </li>
+                        {% endif %}
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if pagination.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('fertilizer_history', page=pagination.next_num) }}">Next</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="text-center my-5" data-aos="zoom-in">
+        <i class="fa fa-tint" style="font-size: 5rem; color: #ccc;"></i>
+        <h3 class="mt-3">No fertilizer predictions yet!</h3>
+        <p class="text-muted">Start by making your first fertilizer recommendation.</p>
+        <a href="{{ url_for('fertilizer_recommendation') }}" class="btn btn-warning mt-3">Get Fertilizer Recommendation</a>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

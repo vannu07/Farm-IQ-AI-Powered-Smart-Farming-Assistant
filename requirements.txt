@@ -96,3 +96,8 @@ widgetsnbextension==3.5.1
 wrapt==1.12.1
 xgboost==1.2.1
 yarg==0.1.9
+flask-sqlalchemy==2.5.1
+flask-migrate==3.1.0
+plotly==5.3.1
+reportlab==3.6.2
+python-dotenv==0.19.2

@@ -11,7 +11,15 @@
 
     <h4>Remedy:</h4>
     <p>{{ prediction | safe }}</p>
-    <a href="{{ url_for('disease_prediction') }}" class="btn btn-light back-btn">Try Another Image</a>
+    <div class="mt-4">
+      <a href="{{ url_for('disease_page') }}" class="btn btn-light back-btn">Try Another Image</a>
+      <a href="{{ url_for('disease_history') }}" class="btn btn-danger ml-2">
+        <i class="fa fa-history"></i> View History
+      </a>
+      <a href="{{ url_for('dashboard') }}" class="btn btn-primary ml-2">
+        <i class="fa fa-dashboard"></i> Dashboard
+      </a>
+    </div>
   </div>
 </div>
 

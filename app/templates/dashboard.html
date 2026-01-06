@@ -1,0 +1,349 @@
+{% extends 'layout.html' %}
+{% block body %}
+
+<style>
+    .dashboard-container {
+        margin-top: 120px;
+        margin-bottom: 50px;
+    }
+    
+    .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 15px;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        transition: transform 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .stat-card.green {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+    
+    .stat-card.orange {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    
+    .stat-card.blue {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    
+    .stat-number {
+        font-size: 3rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    
+    .stat-label {
+        font-size: 1.2rem;
+        opacity: 0.9;
+    }
+    
+    .chart-container {
+        background: white;
+        padding: 30px;
+        border-radius: 15px;
+        margin-bottom: 30px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .history-card {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        border-left: 4px solid #2E7D32;
+    }
+    
+    .export-buttons {
+        margin-top: 30px;
+        margin-bottom: 30px;
+    }
+    
+    .btn-export {
+        padding: 12px 30px;
+        margin: 10px;
+        border-radius: 25px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-export:hover {
+        transform: scale(1.05);
+    }
+</style>
+
+<div class="container dashboard-container" data-aos="fade-up">
+    <h1 class="text-center mb-5" style="color: #2E7D32; font-weight: bold;">
+        <i class="fa fa-dashboard"></i> Your Dashboard
+    </h1>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-5">
+        <div class="col-md-3 col-sm-6" data-aos="fade-up" data-aos-delay="100">
+            <div class="stat-card">
+                <div class="stat-number">{{ stats.total_predictions }}</div>
+                <div class="stat-label">Total Predictions</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6" data-aos="fade-up" data-aos-delay="200">
+            <div class="stat-card green">
+                <div class="stat-number">{{ stats.total_crops }}</div>
+                <div class="stat-label">Crop Recommendations</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6" data-aos="fade-up" data-aos-delay="300">
+            <div class="stat-card orange">
+                <div class="stat-number">{{ stats.total_fertilizers }}</div>
+                <div class="stat-label">Fertilizer Suggestions</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6" data-aos="fade-up" data-aos-delay="400">
+            <div class="stat-card blue">
+                <div class="stat-number">{{ stats.total_diseases }}</div>
+                <div class="stat-label">Disease Detections</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Buttons -->
+    <div class="export-buttons text-center" data-aos="zoom-in">
+        <a href="{{ url_for('export_csv') }}" class="btn btn-success btn-export">
+            <i class="fa fa-file-excel-o"></i> Export to CSV
+        </a>
+        <a href="{{ url_for('export_pdf') }}" class="btn btn-danger btn-export">
+            <i class="fa fa-file-pdf-o"></i> Generate PDF Report
+        </a>
+    </div>
+
+    <!-- Charts -->
+    {% if stats.total_predictions > 0 %}
+    <div class="row">
+        <!-- Average Nutrient Levels -->
+        <div class="col-md-6" data-aos="fade-right">
+            <div class="chart-container">
+                <h3 class="text-center mb-4">Average Soil Nutrient Levels</h3>
+                <canvas id="nutrientChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Common Crops -->
+        <div class="col-md-6" data-aos="fade-left">
+            <div class="chart-container">
+                <h3 class="text-center mb-4">Most Recommended Crops</h3>
+                <canvas id="cropChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    {% if stats.common_diseases %}
+    <div class="row">
+        <div class="col-md-12" data-aos="fade-up">
+            <div class="chart-container">
+                <h3 class="text-center mb-4">Disease Detection Frequency</h3>
+                <canvas id="diseaseChart"></canvas>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <!-- Recent Predictions -->
+    <div class="row mt-5">
+        <!-- Recent Crop Predictions -->
+        {% if crop_predictions %}
+        <div class="col-md-4" data-aos="fade-up">
+            <h3 class="mb-3">
+                <i class="fa fa-leaf" style="color: #2E7D32;"></i> Recent Crops
+                <a href="{{ url_for('crop_history') }}" class="btn btn-sm btn-outline-success float-right">View All</a>
+            </h3>
+            {% for pred in crop_predictions[:5] %}
+            <div class="history-card">
+                <h5>{{ pred.predicted_crop }}</h5>
+                <small class="text-muted">
+                    <i class="fa fa-clock-o"></i> {{ pred.timestamp.strftime('%Y-%m-%d %H:%M') }}
+                </small>
+                <p class="mb-0 mt-2">
+                    <span class="badge badge-info">N: {{ pred.nitrogen }}</span>
+                    <span class="badge badge-info">P: {{ pred.phosphorus }}</span>
+                    <span class="badge badge-info">K: {{ pred.potassium }}</span>
+                </p>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Recent Fertilizer Predictions -->
+        {% if fertilizer_predictions %}
+        <div class="col-md-4" data-aos="fade-up" data-aos-delay="100">
+            <h3 class="mb-3">
+                <i class="fa fa-tint" style="color: #FF6F00;"></i> Recent Fertilizers
+                <a href="{{ url_for('fertilizer_history') }}" class="btn btn-sm btn-outline-warning float-right">View All</a>
+            </h3>
+            {% for pred in fertilizer_predictions[:5] %}
+            <div class="history-card" style="border-left-color: #FF6F00;">
+                <h5>{{ pred.crop_name }}</h5>
+                <small class="text-muted">
+                    <i class="fa fa-clock-o"></i> {{ pred.timestamp.strftime('%Y-%m-%d %H:%M') }}
+                </small>
+                <p class="mb-0 mt-2">
+                    <span class="badge badge-warning">{{ pred.recommendation_key }}</span>
+                </p>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Recent Disease Predictions -->
+        {% if disease_predictions %}
+        <div class="col-md-4" data-aos="fade-up" data-aos-delay="200">
+            <h3 class="mb-3">
+                <i class="fa fa-bug" style="color: #D32F2F;"></i> Recent Diseases
+                <a href="{{ url_for('disease_history') }}" class="btn btn-sm btn-outline-danger float-right">View All</a>
+            </h3>
+            {% for pred in disease_predictions[:5] %}
+            <div class="history-card" style="border-left-color: #D32F2F;">
+                <h5>{{ pred.predicted_disease.split('___')[0] if '___' in pred.predicted_disease else pred.predicted_disease }}</h5>
+                <small class="text-muted">
+                    <i class="fa fa-clock-o"></i> {{ pred.timestamp.strftime('%Y-%m-%d %H:%M') }}
+                </small>
+                <p class="mb-0 mt-2">
+                    <span class="badge badge-success">{{ "%.1f"|format(pred.confidence) }}% Confidence</span>
+                </p>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    {% if stats.total_predictions == 0 %}
+    <div class="text-center my-5" data-aos="zoom-in">
+        <i class="fa fa-info-circle" style="font-size: 5rem; color: #ccc;"></i>
+        <h3 class="mt-3">No predictions yet!</h3>
+        <p class="text-muted">Start by making your first prediction using our services.</p>
+        <div class="mt-4">
+            <a href="{{ url_for('crop_recommend') }}" class="btn btn-success mx-2">Crop Recommendation</a>
+            <a href="{{ url_for('fertilizer_recommendation') }}" class="btn btn-warning mx-2">Fertilizer Suggestion</a>
+            <a href="{{ url_for('disease_page') }}" class="btn btn-danger mx-2">Disease Detection</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    {% if stats.total_predictions > 0 %}
+    // Nutrient Chart
+    const nutrientCtx = document.getElementById('nutrientChart');
+    if (nutrientCtx) {
+        new Chart(nutrientCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Nitrogen (N)', 'Phosphorus (P)', 'Potassium (K)'],
+                datasets: [{
+                    label: 'Average Level',
+                    data: [{{ stats.avg_nitrogen }}, {{ stats.avg_phosphorus }}, {{ stats.avg_potassium }}],
+                    backgroundColor: [
+                        'rgba(46, 125, 50, 0.8)',
+                        'rgba(255, 111, 0, 0.8)',
+                        'rgba(211, 47, 47, 0.8)'
+                    ],
+                    borderColor: [
+                        'rgba(46, 125, 50, 1)',
+                        'rgba(255, 111, 0, 1)',
+                        'rgba(211, 47, 47, 1)'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    // Crop Chart
+    {% if stats.common_crops %}
+    const cropCtx = document.getElementById('cropChart');
+    if (cropCtx) {
+        new Chart(cropCtx, {
+            type: 'pie',
+            data: {
+                labels: [{% for crop in stats.common_crops %}'{{ crop[0] }}'{% if not loop.last %}, {% endif %}{% endfor %}],
+                datasets: [{
+                    data: [{% for crop in stats.common_crops %}{{ crop[1] }}{% if not loop.last %}, {% endif %}{% endfor %}],
+                    backgroundColor: [
+                        'rgba(46, 125, 50, 0.8)',
+                        'rgba(255, 111, 0, 0.8)',
+                        'rgba(211, 47, 47, 0.8)',
+                        'rgba(33, 150, 243, 0.8)',
+                        'rgba(156, 39, 176, 0.8)'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+
+    // Disease Chart
+    {% if stats.common_diseases %}
+    const diseaseCtx = document.getElementById('diseaseChart');
+    if (diseaseCtx) {
+        new Chart(diseaseCtx, {
+            type: 'bar',
+            data: {
+                labels: [{% for disease in stats.common_diseases %}'{{ disease[0].split("___")[0] if "___" in disease[0] else disease[0][:30] }}'{% if not loop.last %}, {% endif %}{% endfor %}],
+                datasets: [{
+                    label: 'Detection Count',
+                    data: [{% for disease in stats.common_diseases %}{{ disease[1] }}{% if not loop.last %}, {% endif %}{% endfor %}],
+                    backgroundColor: 'rgba(211, 47, 47, 0.8)',
+                    borderColor: 'rgba(211, 47, 47, 1)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                indexAxis: 'y',
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+    {% endif %}
+</script>
+
+{% endblock %}
