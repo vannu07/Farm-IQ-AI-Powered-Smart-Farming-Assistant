@@ -133,6 +133,8 @@ get_or_create_session_id() - Creates or retrieves user session ID
 pip install flask-sqlalchemy flask-migrate plotly reportlab python-dotenv
 ```
 
+**⚠️ Security Note:** Ensure you install reportlab version 3.6.13 or higher to avoid the remote code execution vulnerability (CVE-2023-33733) present in versions <= 3.6.12.
+
 Or install from requirements.txt:
 
 ```bash

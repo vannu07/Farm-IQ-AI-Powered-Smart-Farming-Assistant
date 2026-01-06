@@ -116,9 +116,11 @@ This document summarizes the successful implementation of the User Dashboard fea
 flask-sqlalchemy==3.1.1
 flask-migrate==4.1.0
 plotly==6.5.0
-reportlab==4.4.7
+reportlab>=3.6.13  # Security: Patched RCE vulnerability (CVE-2023-33733)
 python-dotenv==1.2.1
 ```
+
+**Security Note:** ReportLab has been updated to version >= 3.6.13 to address a remote code execution vulnerability present in versions <= 3.6.12.
 
 ## Database Schema
 
