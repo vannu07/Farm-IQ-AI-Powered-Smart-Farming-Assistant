@@ -58,6 +58,19 @@ Farm-IQ is an intelligent farming assistant that leverages Machine Learning and 
 </tr>
 </table>
 
+### 📊 **NEW: User Dashboard & Analytics**
+
+Transform FarmIQ from a stateless tool into an intelligent farming companion with:
+
+- **📈 Prediction History Tracking** - Store and review all your predictions
+- **📊 Interactive Dashboard** - Visualize farming patterns with charts
+- **📁 Export & Reports** - Generate CSV and PDF reports
+- **🔍 Historical Analysis** - Track nutrient trends and crop patterns over time
+
+[📖 Dashboard Documentation](DASHBOARD_DOCUMENTATION.md)
+
+![Dashboard Preview](https://github.com/user-attachments/assets/93d56599-1732-43c1-9143-2f8048704c26)
+
 ---
 
 ## ⚠️ Important Disclaimer
@@ -271,7 +284,11 @@ Anaconda provides better package management and avoids dependency conflicts.
 
 4. **Launch Application**
    ```bash
+   # Initialize the database (first time only)
+   python init_db.py
+   
    # Start the Flask development server
+   cd app
    python app.py
    ```
 
@@ -279,6 +296,7 @@ Anaconda provides better package management and avoids dependency conflicts.
    - Open your browser and navigate to: `http://localhost:5000`
    - Or use the URL displayed in your terminal
    - Start exploring the AI-powered farming features!
+   - Access the Dashboard at: `http://localhost:5000/dashboard`
 
 #### Option 2: Using Python venv (Alternative)
 
@@ -312,6 +330,11 @@ If you don't have Anaconda, you can use Python's built-in venv module.
 
 4. **Run the Application**
    ```bash
+   # Initialize the database (first time only)
+   python init_db.py
+   
+   # Start the Flask server
+   cd app
    python app.py
    ```
 

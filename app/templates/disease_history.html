@@ -1,0 +1,128 @@
+{% extends 'layout.html' %}
+{% block body %}
+
+<style>
+    .history-container {
+        margin-top: 120px;
+        margin-bottom: 50px;
+    }
+    
+    .history-item {
+        background: white;
+        padding: 25px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        border-left: 5px solid #D32F2F;
+        transition: transform 0.3s ease;
+    }
+    
+    .history-item:hover {
+        transform: translateX(5px);
+    }
+    
+    .pagination-container {
+        margin-top: 30px;
+        text-align: center;
+    }
+    
+    .confidence-badge {
+        font-size: 1.1rem;
+        padding: 8px 15px;
+    }
+</style>
+
+<div class="container history-container" data-aos="fade-up">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h1 style="color: #D32F2F; font-weight: bold;">
+                <i class="fa fa-bug"></i> Disease Detection History
+            </h1>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary mt-3">
+                <i class="fa fa-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    {% if predictions %}
+    {% for pred in predictions %}
+    <div class="history-item" data-aos="fade-up" data-aos-delay="{{ loop.index * 50 }}">
+        <div class="row">
+            <div class="col-md-8">
+                <h3 style="color: #D32F2F;">
+                    {% if '___' in pred.predicted_disease %}
+                        {{ pred.predicted_disease.split('___')[0] }} - {{ pred.predicted_disease.split('___')[1].replace('_', ' ') }}
+                    {% else %}
+                        {{ pred.predicted_disease.replace('_', ' ') }}
+                    {% endif %}
+                </h3>
+                <p class="text-muted mb-2">
+                    <i class="fa fa-clock-o"></i> {{ pred.timestamp.strftime('%B %d, %Y at %I:%M %p') }}
+                </p>
+                <p class="mb-1">
+                    <strong>Image:</strong> {{ pred.image_filename }}
+                </p>
+            </div>
+            <div class="col-md-4 text-right">
+                <p class="mb-1"><strong>Confidence:</strong></p>
+                {% if pred.confidence >= 80 %}
+                <span class="badge badge-success confidence-badge">{{ "%.1f"|format(pred.confidence) }}%</span>
+                {% elif pred.confidence >= 60 %}
+                <span class="badge badge-warning confidence-badge">{{ "%.1f"|format(pred.confidence) }}%</span>
+                {% else %}
+                <span class="badge badge-danger confidence-badge">{{ "%.1f"|format(pred.confidence) }}%</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <div class="pagination-container">
+        <nav aria-label="Page navigation">
+            <ul class="pagination justify-content-center">
+                {% if pagination.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('disease_history', page=pagination.prev_num) }}">Previous</a>
+                </li>
+                {% endif %}
+                
+                {% for page_num in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+                    {% if page_num %}
+                        {% if page_num == pagination.page %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_num }}</span>
+                        </li>
+                        {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('disease_history', page=page_num) }}">{{ page_num }}</a>
+                        </li>
+                        {% endif %}
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if pagination.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('disease_history', page=pagination.next_num) }}">Next</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="text-center my-5" data-aos="zoom-in">
+        <i class="fa fa-bug" style="font-size: 5rem; color: #ccc;"></i>
+        <h3 class="mt-3">No disease predictions yet!</h3>
+        <p class="text-muted">Start by detecting your first disease.</p>
+        <a href="{{ url_for('disease_page') }}" class="btn btn-danger mt-3">Detect Disease</a>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

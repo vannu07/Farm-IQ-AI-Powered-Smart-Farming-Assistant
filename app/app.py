@@ -5,13 +5,15 @@ import io
 import logging
 import os
 import pickle
+import uuid
 
 import config  # Assuming config.py holds your weather_api_key
 import numpy as np
 import pandas as pd
 import requests
 import torch
-from flask import Flask, flash, redirect, render_template, request, url_for
+from flask import Flask, flash, redirect, render_template, request, url_for, session
+from flask_migrate import Migrate
 from markupsafe import Markup
 from PIL import Image
 from torchvision import transforms
@@ -20,6 +22,7 @@ from torchvision import transforms
 from utils.disease import disease_dic
 from utils.fertilizer import fertilizer_dic
 from utils.model import ResNet9
+from models import db, CropPrediction, FertilizerPrediction, DiseasePrediction
 
 # ==============================================================================================
 # --- CHANGE: Set up basic logging to see errors in the console
@@ -32,6 +35,14 @@ app = Flask(__name__)
 # --- CHANGE: Add a secret key for flash messages to work.
 # It's better to set this as an environment variable in production.
 app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
+
+# Database configuration
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///farmiq.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Initialize database
+db.init_app(app)
+migrate = Migrate(app, db)
 
 # ==============================================================================================
 # -------------------------LOADING THE TRAINED MODELS & DATA -----------------------------------
@@ -115,6 +126,15 @@ except Exception as e:
 # =========================================================================================
 # ----------------- CUSTOM FUNCTIONS FOR PREDICTIONS AND API CALLS ------------------------
 # =========================================================================================
+
+
+def get_or_create_session_id():
+    """
+    Get or create a unique session ID for the user.
+    """
+    if 'user_id' not in session:
+        session['user_id'] = str(uuid.uuid4())
+    return session['user_id']
 
 
 def weather_fetch(city_name):
@@ -248,6 +268,28 @@ def crop_prediction():
             my_prediction = crop_recommendation_model.predict(data)
             final_prediction = my_prediction[0]
 
+            # Save prediction to database
+            try:
+                session_id = get_or_create_session_id()
+                crop_pred = CropPrediction(
+                    user_session=session_id,
+                    nitrogen=N,
+                    phosphorus=P,
+                    potassium=K,
+                    temperature=temperature,
+                    humidity=humidity,
+                    ph=ph,
+                    rainfall=rainfall,
+                    city=city,
+                    predicted_crop=final_prediction
+                )
+                db.session.add(crop_pred)
+                db.session.commit()
+                logging.info(f"✅ Crop prediction saved for session {session_id}")
+            except Exception as e:
+                logging.error(f"❌ Error saving crop prediction: {e}")
+                db.session.rollback()
+
             return render_template(
                 "crop-result.html", prediction=final_prediction, title=title
             )
@@ -313,6 +355,24 @@ def fert_recommend():
 
         response = Markup(str(fertilizer_dic.get(key, "No recommendation available.")))
 
+        # Save prediction to database
+        try:
+            session_id = get_or_create_session_id()
+            fert_pred = FertilizerPrediction(
+                user_session=session_id,
+                crop_name=crop_name,
+                nitrogen=N,
+                phosphorus=P,
+                potassium=K,
+                recommendation_key=key
+            )
+            db.session.add(fert_pred)
+            db.session.commit()
+            logging.info(f"✅ Fertilizer prediction saved for session {session_id}")
+        except Exception as e:
+            logging.error(f"❌ Error saving fertilizer prediction: {e}")
+            db.session.rollback()
+
         return render_template(
             "fertilizer-result.html", recommendation=response, title=title
         )
@@ -345,6 +405,23 @@ def disease_prediction():
                     )
                 )
             )
+
+            # Save prediction to database
+            try:
+                session_id = get_or_create_session_id()
+                disease_pred = DiseasePrediction(
+                    user_session=session_id,
+                    image_filename=file.filename,
+                    predicted_disease=prediction_class,
+                    confidence=confidence
+                )
+                db.session.add(disease_pred)
+                db.session.commit()
+                logging.info(f"✅ Disease prediction saved for session {session_id}")
+            except Exception as e:
+                logging.error(f"❌ Error saving disease prediction: {e}")
+                db.session.rollback()
+
             return render_template(
                 "disease-result.html",
                 prediction=remedy,
@@ -364,7 +441,370 @@ def disease_prediction():
 
 
 # ===============================================================================================
+# ------------------------------------ DASHBOARD & HISTORY ROUTES -------------------------------
+# ===============================================================================================
+
+
+@app.route("/dashboard")
+def dashboard():
+    """Display user dashboard with prediction history and statistics"""
+    title = "FarmIQ - Dashboard"
+    session_id = get_or_create_session_id()
+
+    try:
+        # Get recent predictions
+        crop_predictions = CropPrediction.query.filter_by(
+            user_session=session_id
+        ).order_by(CropPrediction.timestamp.desc()).limit(10).all()
+
+        fertilizer_predictions = FertilizerPrediction.query.filter_by(
+            user_session=session_id
+        ).order_by(FertilizerPrediction.timestamp.desc()).limit(10).all()
+
+        disease_predictions = DiseasePrediction.query.filter_by(
+            user_session=session_id
+        ).order_by(DiseasePrediction.timestamp.desc()).limit(10).all()
+
+        # Calculate statistics
+        total_crops = CropPrediction.query.filter_by(user_session=session_id).count()
+        total_fertilizers = FertilizerPrediction.query.filter_by(user_session=session_id).count()
+        total_diseases = DiseasePrediction.query.filter_by(user_session=session_id).count()
+
+        # Calculate average nutrient levels for crop predictions
+        avg_nitrogen = db.session.query(db.func.avg(CropPrediction.nitrogen)).filter_by(
+            user_session=session_id
+        ).scalar() or 0
+
+        avg_phosphorus = db.session.query(db.func.avg(CropPrediction.phosphorus)).filter_by(
+            user_session=session_id
+        ).scalar() or 0
+
+        avg_potassium = db.session.query(db.func.avg(CropPrediction.potassium)).filter_by(
+            user_session=session_id
+        ).scalar() or 0
+
+        # Get most common crop recommendations
+        from sqlalchemy import func
+        common_crops = db.session.query(
+            CropPrediction.predicted_crop,
+            func.count(CropPrediction.predicted_crop).label('count')
+        ).filter_by(user_session=session_id).group_by(
+            CropPrediction.predicted_crop
+        ).order_by(func.count(CropPrediction.predicted_crop).desc()).limit(5).all()
+
+        # Get most common diseases
+        common_diseases = db.session.query(
+            DiseasePrediction.predicted_disease,
+            func.count(DiseasePrediction.predicted_disease).label('count')
+        ).filter_by(user_session=session_id).group_by(
+            DiseasePrediction.predicted_disease
+        ).order_by(func.count(DiseasePrediction.predicted_disease).desc()).limit(5).all()
+
+        stats = {
+            'total_crops': total_crops,
+            'total_fertilizers': total_fertilizers,
+            'total_diseases': total_diseases,
+            'total_predictions': total_crops + total_fertilizers + total_diseases,
+            'avg_nitrogen': round(avg_nitrogen, 2),
+            'avg_phosphorus': round(avg_phosphorus, 2),
+            'avg_potassium': round(avg_potassium, 2),
+            'common_crops': common_crops,
+            'common_diseases': common_diseases
+        }
+
+        return render_template(
+            'dashboard.html',
+            title=title,
+            crop_predictions=crop_predictions,
+            fertilizer_predictions=fertilizer_predictions,
+            disease_predictions=disease_predictions,
+            stats=stats
+        )
+
+    except Exception as e:
+        logging.error(f"Error loading dashboard: {e}")
+        flash("❌ Error loading dashboard data.")
+        return redirect(url_for("home"))
+
+
+@app.route("/history/crops")
+def crop_history():
+    """Display crop prediction history with pagination"""
+    title = "FarmIQ - Crop History"
+    session_id = get_or_create_session_id()
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+
+    try:
+        pagination = CropPrediction.query.filter_by(
+            user_session=session_id
+        ).order_by(CropPrediction.timestamp.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+
+        return render_template(
+            'crop_history.html',
+            title=title,
+            predictions=pagination.items,
+            pagination=pagination
+        )
+    except Exception as e:
+        logging.error(f"Error loading crop history: {e}")
+        flash("❌ Error loading crop history.")
+        return redirect(url_for("dashboard"))
+
+
+@app.route("/history/fertilizers")
+def fertilizer_history():
+    """Display fertilizer prediction history with pagination"""
+    title = "FarmIQ - Fertilizer History"
+    session_id = get_or_create_session_id()
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+
+    try:
+        pagination = FertilizerPrediction.query.filter_by(
+            user_session=session_id
+        ).order_by(FertilizerPrediction.timestamp.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+
+        return render_template(
+            'fertilizer_history.html',
+            title=title,
+            predictions=pagination.items,
+            pagination=pagination
+        )
+    except Exception as e:
+        logging.error(f"Error loading fertilizer history: {e}")
+        flash("❌ Error loading fertilizer history.")
+        return redirect(url_for("dashboard"))
+
+
+@app.route("/history/diseases")
+def disease_history():
+    """Display disease prediction history with pagination"""
+    title = "FarmIQ - Disease History"
+    session_id = get_or_create_session_id()
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+
+    try:
+        pagination = DiseasePrediction.query.filter_by(
+            user_session=session_id
+        ).order_by(DiseasePrediction.timestamp.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+
+        return render_template(
+            'disease_history.html',
+            title=title,
+            predictions=pagination.items,
+            pagination=pagination
+        )
+    except Exception as e:
+        logging.error(f"Error loading disease history: {e}")
+        flash("❌ Error loading disease history.")
+        return redirect(url_for("dashboard"))
+
+
+@app.route("/export/csv")
+def export_csv():
+    """Export all prediction history as CSV"""
+    from flask import make_response
+    import csv
+    from io import StringIO
+
+    session_id = get_or_create_session_id()
+
+    try:
+        # Create CSV in memory
+        si = StringIO()
+        writer = csv.writer(si)
+
+        # Write crop predictions
+        writer.writerow(['=== CROP PREDICTIONS ==='])
+        writer.writerow(['ID', 'Timestamp', 'Nitrogen', 'Phosphorus', 'Potassium', 'Temperature', 'Humidity', 'pH', 'Rainfall', 'City', 'Predicted Crop'])
+        crop_preds = CropPrediction.query.filter_by(user_session=session_id).order_by(CropPrediction.timestamp.desc()).all()
+        for pred in crop_preds:
+            writer.writerow([
+                pred.id, pred.timestamp, pred.nitrogen, pred.phosphorus, pred.potassium,
+                pred.temperature, pred.humidity, pred.ph, pred.rainfall, pred.city, pred.predicted_crop
+            ])
+
+        writer.writerow([])  # Empty row
+        
+        # Write fertilizer predictions
+        writer.writerow(['=== FERTILIZER PREDICTIONS ==='])
+        writer.writerow(['ID', 'Timestamp', 'Crop Name', 'Nitrogen', 'Phosphorus', 'Potassium', 'Recommendation'])
+        fert_preds = FertilizerPrediction.query.filter_by(user_session=session_id).order_by(FertilizerPrediction.timestamp.desc()).all()
+        for pred in fert_preds:
+            writer.writerow([
+                pred.id, pred.timestamp, pred.crop_name, pred.nitrogen, pred.phosphorus, pred.potassium, pred.recommendation_key
+            ])
+
+        writer.writerow([])  # Empty row
+        
+        # Write disease predictions
+        writer.writerow(['=== DISEASE PREDICTIONS ==='])
+        writer.writerow(['ID', 'Timestamp', 'Image Filename', 'Predicted Disease', 'Confidence (%)'])
+        disease_preds = DiseasePrediction.query.filter_by(user_session=session_id).order_by(DiseasePrediction.timestamp.desc()).all()
+        for pred in disease_preds:
+            writer.writerow([
+                pred.id, pred.timestamp, pred.image_filename, pred.predicted_disease, pred.confidence
+            ])
+
+        # Create response
+        output = make_response(si.getvalue())
+        output.headers["Content-Disposition"] = "attachment; filename=farmiq_predictions.csv"
+        output.headers["Content-type"] = "text/csv"
+        return output
+
+    except Exception as e:
+        logging.error(f"Error exporting CSV: {e}")
+        flash("❌ Error exporting data to CSV.")
+        return redirect(url_for("dashboard"))
+
+
+@app.route("/export/pdf")
+def export_pdf():
+    """Export prediction history as PDF report"""
+    from flask import make_response
+    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import inch
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from io import BytesIO
+    from datetime import datetime
+
+    session_id = get_or_create_session_id()
+
+    try:
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        elements = []
+        styles = getSampleStyleSheet()
+
+        # Title
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor('#2E7D32'),
+            spaceAfter=30,
+            alignment=1  # Center
+        )
+        elements.append(Paragraph("FarmIQ Prediction Report", title_style))
+        elements.append(Spacer(1, 0.2*inch))
+
+        # Report info
+        elements.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
+        elements.append(Paragraph(f"Session ID: {session_id[:8]}...", styles['Normal']))
+        elements.append(Spacer(1, 0.3*inch))
+
+        # Statistics
+        total_crops = CropPrediction.query.filter_by(user_session=session_id).count()
+        total_fertilizers = FertilizerPrediction.query.filter_by(user_session=session_id).count()
+        total_diseases = DiseasePrediction.query.filter_by(user_session=session_id).count()
+
+        elements.append(Paragraph("Summary Statistics", styles['Heading2']))
+        stats_data = [
+            ['Total Predictions', str(total_crops + total_fertilizers + total_diseases)],
+            ['Crop Recommendations', str(total_crops)],
+            ['Fertilizer Suggestions', str(total_fertilizers)],
+            ['Disease Detections', str(total_diseases)]
+        ]
+        stats_table = Table(stats_data, colWidths=[3*inch, 2*inch])
+        stats_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.beige),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        elements.append(stats_table)
+        elements.append(Spacer(1, 0.5*inch))
+
+        # Recent Crop Predictions
+        if total_crops > 0:
+            elements.append(Paragraph("Recent Crop Recommendations", styles['Heading2']))
+            crop_preds = CropPrediction.query.filter_by(user_session=session_id).order_by(
+                CropPrediction.timestamp.desc()
+            ).limit(5).all()
+            crop_data = [['Date', 'Crop', 'N-P-K', 'City']]
+            for pred in crop_preds:
+                crop_data.append([
+                    pred.timestamp.strftime('%Y-%m-%d'),
+                    pred.predicted_crop,
+                    f"{pred.nitrogen}-{pred.phosphorus}-{pred.potassium}",
+                    pred.city or 'N/A'
+                ])
+            crop_table = Table(crop_data, colWidths=[1.5*inch, 2*inch, 1.5*inch, 1.5*inch])
+            crop_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            elements.append(crop_table)
+            elements.append(Spacer(1, 0.3*inch))
+
+        # Recent Disease Predictions
+        if total_diseases > 0:
+            elements.append(Paragraph("Recent Disease Detections", styles['Heading2']))
+            disease_preds = DiseasePrediction.query.filter_by(user_session=session_id).order_by(
+                DiseasePrediction.timestamp.desc()
+            ).limit(5).all()
+            disease_data = [['Date', 'Disease', 'Confidence']]
+            for pred in disease_preds:
+                disease_data.append([
+                    pred.timestamp.strftime('%Y-%m-%d'),
+                    pred.predicted_disease[:30],
+                    f"{pred.confidence:.1f}%"
+                ])
+            disease_table = Table(disease_data, colWidths=[1.5*inch, 3.5*inch, 1.5*inch])
+            disease_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            elements.append(disease_table)
+
+        # Build PDF
+        doc.build(elements)
+        pdf_data = buffer.getvalue()
+        buffer.close()
+
+        response = make_response(pdf_data)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = 'attachment; filename=farmiq_report.pdf'
+        return response
+
+    except Exception as e:
+        logging.error(f"Error generating PDF: {e}")
+        flash("❌ Error generating PDF report.")
+        return redirect(url_for("dashboard"))
+
+
+# ===============================================================================================
 if __name__ == "__main__":
+    # Create database tables if they don't exist
+    with app.app_context():
+        db.create_all()
+        logging.info("✅ Database tables created/verified.")
+    
     # Use debug mode only if the environment variable DEBUG is set to '1' or 'true'
     debug_mode = os.environ.get("DEBUG", "False").lower() in ("1", "true", "yes")
     app.run(debug=debug_mode)
