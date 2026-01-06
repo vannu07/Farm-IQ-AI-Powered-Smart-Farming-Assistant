@@ -1,6 +1,8 @@
 documentation:
   - changed-files:
       - any-glob-to-any-file: 'docs/**'
+      - any-glob-to-any-file: '**/*.md'
+      - any-glob-to-any-file: '*_DOCUMENTATION.md'
 
 ml-model:
   - changed-files:
@@ -25,3 +27,36 @@ python:
 jupyter-notebook:
   - changed-files:
       - any-glob-to-any-file: '**/*.ipynb'
+
+api:
+  - changed-files:
+      - any-glob-to-any-file: 'app/api/**'
+      - any-glob-to-any-file: '**/api/**'
+      - any-glob-to-any-file: 'API_DOCUMENTATION.md'
+
+database:
+  - changed-files:
+      - any-glob-to-any-file: '**/models/**'
+      - any-glob-to-any-file: '**/migrations/**'
+      - any-glob-to-any-file: 'init_db.py'
+      - any-glob-to-any-file: '**/*_db.py'
+
+testing:
+  - changed-files:
+      - any-glob-to-any-file: 'tests/**'
+      - any-glob-to-any-file: '**/*test*.py'
+      - any-glob-to-any-file: '**/*_test.py'
+
+configuration:
+  - changed-files:
+      - any-glob-to-any-file: ['**/*.yml', '!.github/workflows/**']
+      - any-glob-to-any-file: ['**/*.yaml', '!.github/workflows/**']
+      - any-glob-to-any-file: '**/*.json'
+      - any-glob-to-any-file: '.env*'
+      - any-glob-to-any-file: '**/*config*'
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file: 'requirements*.txt'
+      - any-glob-to-any-file: 'package*.json'
+      - any-glob-to-any-file: 'Pipfile*'

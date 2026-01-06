@@ -37,10 +37,35 @@ jobs:
             const labelsToAdd = [];
 
             const title = issue.title.toLowerCase();
+            const body = issue.body ? issue.body.toLowerCase() : '';
 
-            if (title.includes("bug")) labelsToAdd.push("bug");
-            if (title.includes("feature") || title.includes("enhancement")) labelsToAdd.push("enhancement");
-            if (title.includes("docs")) labelsToAdd.push("documentation");
+            // Bug and Enhancement labels
+            if (title.includes("bug") || body.includes("bug")) labelsToAdd.push("bug");
+            if (title.includes("feature") || title.includes("enhancement") || body.includes("feature") || body.includes("enhancement")) labelsToAdd.push("enhancement");
+            if (title.includes("docs") || title.includes("documentation") || body.includes("docs") || body.includes("documentation")) labelsToAdd.push("documentation");
+            
+            // Question and Help labels
+            if (title.includes("question") || title.includes("how to") || title.includes("help")) labelsToAdd.push("question");
+            if (title.includes("help wanted") || body.includes("help wanted")) labelsToAdd.push("help wanted");
+            
+            // Good first issue
+            if (title.includes("good first issue") || title.includes("beginner") || body.includes("good first issue")) labelsToAdd.push("good first issue");
+            
+            // Priority labels
+            if (title.includes("urgent") || title.includes("critical") || title.includes("high priority")) labelsToAdd.push("priority: high");
+            if (title.includes("low priority")) labelsToAdd.push("priority: low");
+            
+            // Component-specific labels
+            if (title.includes("api") || body.includes("api")) labelsToAdd.push("api");
+            if (title.includes("database") || title.includes("db") || body.includes("database")) labelsToAdd.push("database");
+            if (title.includes("frontend") || title.includes("ui") || title.includes("interface")) labelsToAdd.push("frontend");
+            if (title.includes("backend") || body.includes("backend")) labelsToAdd.push("backend");
+            if (title.includes("ml") || title.includes("machine learning") || title.includes("model")) labelsToAdd.push("ml-model");
+            if (title.includes("test") || title.includes("testing")) labelsToAdd.push("testing");
+            
+            // Security and Performance
+            if (title.includes("security") || body.includes("security") || title.includes("vulnerability")) labelsToAdd.push("security");
+            if (title.includes("performance") || title.includes("optimization") || body.includes("performance")) labelsToAdd.push("performance");
 
             if (labelsToAdd.length > 0) {
               await github.rest.issues.addLabels({
