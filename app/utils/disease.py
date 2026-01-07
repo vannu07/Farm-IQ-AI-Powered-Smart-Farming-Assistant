@@ -1,3 +1,5 @@
+"""Disease information dictionary for plant disease identification and management."""
+# pylint: disable=line-too-long,duplicate-key
 disease_dic = {
     "Apple___Apple_scab": """ <b>Crop</b>: Apple <br/>Disease: Apple Scab<br/>
         <br/> Cause of disease:
@@ -149,10 +151,6 @@ disease_dic = {
     "Grape___healthy": """ <b>Crop</b>: Grape <br/>Disease: No disease<br/>
 
         <br/><br/> Don't worry. Your crop is healthy. Keep it up !!!""",
-    "Corn_(maize)___healthy": """ <b>Crop</b>: Corn(maize) <br/>Disease: No disease<br/>
-
-        <br/><br/> Don't worry. Your crop is healthy. Keep it up !!!""",
-    "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)": """<b> Crop</b> : Grape <br/> Disease: Leaf Spot""",
     "Orange___Haunglongbing_(Citrus_greening)": """ <b>Crop</b>: Orange <br/>Disease: Citrus Greening<br/>
         <br/> Cause of disease:
 

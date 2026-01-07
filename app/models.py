@@ -1,3 +1,4 @@
+"""Database models for storing prediction history."""
 # models.py
 # Database models for storing prediction history
 
@@ -10,7 +11,7 @@ db = SQLAlchemy()
 class CropPrediction(db.Model):
     """Model for storing crop recommendation predictions"""
     __tablename__ = 'crop_predictions'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     user_session = db.Column(db.String(100), nullable=False, index=True)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -45,7 +46,7 @@ class CropPrediction(db.Model):
 class FertilizerPrediction(db.Model):
     """Model for storing fertilizer recommendation predictions"""
     __tablename__ = 'fertilizer_predictions'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     user_session = db.Column(db.String(100), nullable=False, index=True)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -72,7 +73,7 @@ class FertilizerPrediction(db.Model):
 class DiseasePrediction(db.Model):
     """Model for storing disease detection predictions"""
     __tablename__ = 'disease_predictions'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     user_session = db.Column(db.String(100), nullable=False, index=True)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
