@@ -1,0 +1,71 @@
+[MASTER]
+# Use multiple processes to speed up Pylint.
+jobs=1
+
+# Pickle collected data for later comparisons.
+persistent=yes
+
+# List of plugins (as comma separated values of python module names) to load
+load-plugins=
+
+[MESSAGES CONTROL]
+# Disable the message, report, category or checker with the given id(s).
+disable=
+    import-error,  # E0401 - Many imports won't be found in CI/linting environment
+    too-few-public-methods,  # R0903 - Database models naturally have few methods
+    too-many-locals,  # R0914 - Some functions naturally require many variables
+    too-many-statements,  # R0915 - Some functions are legitimately complex
+    broad-exception-caught,  # W0718 - We catch broad exceptions for robustness
+    import-outside-toplevel,  # C0415 - Lazy imports are intentional for performance
+
+[REPORTS]
+# Set the output format.
+output-format=text
+
+# Tells whether to display a full report or only the messages.
+reports=no
+
+# Activate the evaluation score.
+score=yes
+
+[FORMAT]
+# Maximum number of characters on a single line.
+max-line-length=100
+
+# Maximum number of lines in a module.
+max-module-lines=1000
+
+[BASIC]
+# Good variable names which should always be accepted
+good-names=i,j,k,ex,Run,_,N,P,K,db,id
+
+[DESIGN]
+# Maximum number of arguments for function / method.
+max-args=7
+
+# Maximum number of attributes for a class
+max-attributes=10
+
+# Maximum number of boolean expressions in an if statement.
+max-bool-expr=5
+
+# Maximum number of branch for function / method body.
+max-branches=12
+
+# Maximum number of locals for function / method body.
+max-locals=20
+
+# Maximum number of parents for a class
+max-parents=7
+
+# Maximum number of public methods for a class
+max-public-methods=20
+
+# Maximum number of return / yield for function / method body.
+max-returns=6
+
+# Maximum number of statements in function / method body.
+max-statements=60
+
+# Minimum number of public methods for a class
+min-public-methods=1

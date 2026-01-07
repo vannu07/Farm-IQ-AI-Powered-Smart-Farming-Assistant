@@ -111,7 +111,8 @@ except Exception as e:
 # Loading crop recommendation model
 try:
     crop_recommendation_model_path = "models/RandomForest.pkl"
-    crop_recommendation_model = pickle.load(open(crop_recommendation_model_path, "rb"))
+    with open(crop_recommendation_model_path, "rb") as model_file:
+        crop_recommendation_model = pickle.load(model_file)
     logging.info("✅ Crop recommendation model loaded successfully.")
 except Exception as e:
     logging.error("❌ Error loading crop recommendation model: %s", e)
@@ -246,6 +247,7 @@ def disease_page():
 
 @app.route("/crop-predict", methods=["POST"])
 def crop_prediction():
+    """Handle crop recommendation prediction based on soil and weather data."""
     title = "FarmIQ - Crop Recommendation"
 
     if request.method == "POST":
@@ -267,54 +269,56 @@ def crop_prediction():
 
         weather_data = weather_fetch(city)
 
-        if weather_data and weather_data[0] is not None:
-            temperature, humidity = weather_data
-            data = np.array([[N, P, K, temperature, humidity, ph, rainfall]])
-            if crop_recommendation_model is None:
-                flash(
-                    "❌ Crop recommendation model is unavailable. Please try again later."
-                )
-                return redirect(url_for("crop_recommend"))
-            my_prediction = crop_recommendation_model.predict(data)
-            final_prediction = my_prediction[0]
-
-            # Save prediction to database
-            try:
-                session_id = get_or_create_session_id()
-                crop_pred = CropPrediction(
-                    user_session=session_id,
-                    nitrogen=N,
-                    phosphorus=P,
-                    potassium=K,
-                    temperature=temperature,
-                    humidity=humidity,
-                    ph=ph,
-                    rainfall=rainfall,
-                    city=city,
-                    predicted_crop=final_prediction
-                )
-                db.session.add(crop_pred)
-                db.session.commit()
-                logging.info("✅ Crop prediction saved for session %s", session_id)
-            except Exception as e:
-                logging.error("❌ Error saving crop prediction: %s", e)
-                db.session.rollback()
-
-            return render_template(
-                "crop-result.html", prediction=final_prediction, title=title
-            )
-        else:
+        if not weather_data or weather_data[0] is None:
             flash(
                 f"❌ Could not fetch weather data for '{city}'. "
                 "Please check the city name and try again."
             )
             return redirect(url_for("crop_recommend"))
 
+        temperature, humidity = weather_data
+        data = np.array([[N, P, K, temperature, humidity, ph, rainfall]])
+        if crop_recommendation_model is None:
+            flash(
+                "❌ Crop recommendation model is unavailable. Please try again later."
+            )
+            return redirect(url_for("crop_recommend"))
+
+        my_prediction = crop_recommendation_model.predict(data)
+        final_prediction = my_prediction[0]
+
+        # Save prediction to database
+        try:
+            session_id = get_or_create_session_id()
+            crop_pred = CropPrediction(
+                user_session=session_id,
+                nitrogen=N,
+                phosphorus=P,
+                potassium=K,
+                temperature=temperature,
+                humidity=humidity,
+                ph=ph,
+                rainfall=rainfall,
+                city=city,
+                predicted_crop=final_prediction
+            )
+            db.session.add(crop_pred)
+            db.session.commit()
+            logging.info("✅ Crop prediction saved for session %s", session_id)
+        except Exception as e:
+            logging.error("❌ Error saving crop prediction: %s", e)
+            db.session.rollback()
+
+        return render_template(
+            "crop-result.html", prediction=final_prediction, title=title
+        )
+
     return redirect(url_for("crop_recommend"))
 
 
 @app.route("/fertilizer-predict", methods=["POST"])
 def fert_recommend():
+    """Handle fertilizer recommendation based on soil NPK levels and crop type."""
     title = "FarmIQ - Fertilizer Suggestion"
 
     if request.method == "POST":
@@ -445,7 +449,8 @@ def disease_prediction():
         except Exception as e:
             logging.error("Error during disease prediction: %s", e)
             flash(
-                f"An error occurred during prediction: {e}. Please try again with a valid image file."
+                f"An error occurred during prediction: {e}. "
+                "Please try again with a valid image file."
             )
             return redirect(url_for("disease_page"))
 
