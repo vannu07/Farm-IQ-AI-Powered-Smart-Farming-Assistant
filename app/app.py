@@ -272,7 +272,7 @@ def crop_prediction():
         if not weather_data or weather_data[0] is None:
             flash(
                 f"❌ Could not fetch weather data for '{city}'. "
-                "Please check the city name and try again."
+                f"Please check the city name and try again."
             )
             return redirect(url_for("crop_recommend"))
 
@@ -450,7 +450,7 @@ def disease_prediction():
             logging.error("Error during disease prediction: %s", e)
             flash(
                 f"An error occurred during prediction: {e}. "
-                "Please try again with a valid image file."
+                f"Please try again with a valid image file."
             )
             return redirect(url_for("disease_page"))
 
