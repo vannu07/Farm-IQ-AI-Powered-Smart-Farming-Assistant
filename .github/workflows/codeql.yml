@@ -12,12 +12,12 @@
 name: "CodeQL Advanced"
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-  schedule:
-    - cron: '34 3 * * 5'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Optional reason for running the CodeQL Advanced workflow manually'
+        required: false
+        default: 'manual run'
 
 jobs:
   analyze:
