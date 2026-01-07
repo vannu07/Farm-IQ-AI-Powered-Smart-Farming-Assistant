@@ -1,3 +1,9 @@
+"""
+Farm-IQ Flask Application.
+
+This is the main application file for the Farm-IQ smart farming assistant,
+providing crop recommendations, disease detection, and fertilizer suggestions.
+"""
 # app.py
 
 # Importing essential libraries and modules
@@ -99,16 +105,17 @@ try:
     disease_model.eval()
     logging.info("✅ Disease detection model loaded successfully.")
 except Exception as e:
-    logging.error(f"❌ Error loading disease model: {e}")
+    logging.error("❌ Error loading disease model: %s", e)
     disease_model = None
 
 # Loading crop recommendation model
 try:
     crop_recommendation_model_path = "models/RandomForest.pkl"
-    crop_recommendation_model = pickle.load(open(crop_recommendation_model_path, "rb"))
+    with open(crop_recommendation_model_path, "rb") as model_file:
+        crop_recommendation_model = pickle.load(model_file)
     logging.info("✅ Crop recommendation model loaded successfully.")
 except Exception as e:
-    logging.error(f"❌ Error loading crop recommendation model: {e}")
+    logging.error("❌ Error loading crop recommendation model: %s", e)
     crop_recommendation_model = None
 
 # --- CHANGE: Load fertilizer data ONCE at startup, not on every request.
@@ -119,7 +126,7 @@ try:
     fertilizer_df = pd.read_csv(fertilizer_csv_path)
     logging.info("✅ Fertilizer data loaded successfully.")
 except Exception as e:
-    logging.error(f"❌ Error loading fertilizer.csv: {e}")
+    logging.error("❌ Error loading fertilizer.csv: %s", e)
     fertilizer_df = None
 
 
@@ -146,13 +153,13 @@ def weather_fetch(city_name):
     params = {"key": config.weather_api_key, "q": city_name}
 
     try:
-        response = requests.get(base_url, params=params)
+        response = requests.get(base_url, params=params, timeout=10)
         response.raise_for_status()  # Will raise an exception for HTTP error codes
         data = response.json()
 
         if "error" in data:
             logging.error(
-                f"Weather API error for city '{city_name}': {data['error']['message']}"
+                "Weather API error for city '%s': %s", city_name, data['error']['message']
             )
             return None, None
 
@@ -161,11 +168,11 @@ def weather_fetch(city_name):
         return temperature, humidity
 
     except requests.exceptions.RequestException as e:
-        logging.error(f"❌ Network error fetching weather for '{city_name}': {e}")
+        logging.error("❌ Network error fetching weather for '%s': %s", city_name, e)
         return None, None
     except KeyError as e:
         logging.error(
-            f"❌ Unexpected API response format for '{city_name}': Missing key {e}"
+            "❌ Unexpected API response format for '%s': Missing key %s", city_name, e
         )
         return None, None
 
@@ -205,6 +212,7 @@ def predict_image(img_bytes, model=disease_model):
 
 @app.route("/")
 def home():
+    """Render the home page."""
     title = "FarmIQ - Home"
     return render_template("index.html", title=title)
 
@@ -212,12 +220,14 @@ def home():
 # --- Render form pages ---
 @app.route("/crop-recommend")
 def crop_recommend():
+    """Render the crop recommendation form page."""
     title = "FarmIQ - Crop Recommendation"
     return render_template("crop.html", title=title)
 
 
 @app.route("/fertilizer")
 def fertilizer_recommendation():
+    """Render the fertilizer recommendation form page."""
     title = "FarmIQ - Fertilizer Suggestion"
     return render_template("fertilizer.html", title=title)
 
@@ -225,6 +235,7 @@ def fertilizer_recommendation():
 # --- CHANGE: Added a GET route for the disease prediction page
 @app.route("/disease")
 def disease_page():
+    """Render the disease detection form page."""
     title = "FarmIQ - Disease Detection"
     return render_template("disease.html", title=title)
 
@@ -236,6 +247,7 @@ def disease_page():
 
 @app.route("/crop-predict", methods=["POST"])
 def crop_prediction():
+    """Handle crop recommendation prediction based on soil and weather data."""
     title = "FarmIQ - Crop Recommendation"
 
     if request.method == "POST":
@@ -257,53 +269,56 @@ def crop_prediction():
 
         weather_data = weather_fetch(city)
 
-        if weather_data and weather_data[0] is not None:
-            temperature, humidity = weather_data
-            data = np.array([[N, P, K, temperature, humidity, ph, rainfall]])
-            if crop_recommendation_model is None:
-                flash(
-                    "❌ Crop recommendation model is unavailable. Please try again later."
-                )
-                return redirect(url_for("crop_recommend"))
-            my_prediction = crop_recommendation_model.predict(data)
-            final_prediction = my_prediction[0]
-
-            # Save prediction to database
-            try:
-                session_id = get_or_create_session_id()
-                crop_pred = CropPrediction(
-                    user_session=session_id,
-                    nitrogen=N,
-                    phosphorus=P,
-                    potassium=K,
-                    temperature=temperature,
-                    humidity=humidity,
-                    ph=ph,
-                    rainfall=rainfall,
-                    city=city,
-                    predicted_crop=final_prediction
-                )
-                db.session.add(crop_pred)
-                db.session.commit()
-                logging.info(f"✅ Crop prediction saved for session {session_id}")
-            except Exception as e:
-                logging.error(f"❌ Error saving crop prediction: {e}")
-                db.session.rollback()
-
-            return render_template(
-                "crop-result.html", prediction=final_prediction, title=title
-            )
-        else:
+        if not weather_data or weather_data[0] is None:
             flash(
-                f"❌ Could not fetch weather data for '{city}'. Please check the city name and try again."
+                f"❌ Could not fetch weather data for '{city}'. "
+                f"Please check the city name and try again."
             )
             return redirect(url_for("crop_recommend"))
+
+        temperature, humidity = weather_data
+        data = np.array([[N, P, K, temperature, humidity, ph, rainfall]])
+        if crop_recommendation_model is None:
+            flash(
+                "❌ Crop recommendation model is unavailable. Please try again later."
+            )
+            return redirect(url_for("crop_recommend"))
+
+        my_prediction = crop_recommendation_model.predict(data)
+        final_prediction = my_prediction[0]
+
+        # Save prediction to database
+        try:
+            session_id = get_or_create_session_id()
+            crop_pred = CropPrediction(
+                user_session=session_id,
+                nitrogen=N,
+                phosphorus=P,
+                potassium=K,
+                temperature=temperature,
+                humidity=humidity,
+                ph=ph,
+                rainfall=rainfall,
+                city=city,
+                predicted_crop=final_prediction
+            )
+            db.session.add(crop_pred)
+            db.session.commit()
+            logging.info("✅ Crop prediction saved for session %s", session_id)
+        except Exception as e:
+            logging.error("❌ Error saving crop prediction: %s", e)
+            db.session.rollback()
+
+        return render_template(
+            "crop-result.html", prediction=final_prediction, title=title
+        )
 
     return redirect(url_for("crop_recommend"))
 
 
 @app.route("/fertilizer-predict", methods=["POST"])
 def fert_recommend():
+    """Handle fertilizer recommendation based on soil NPK levels and crop type."""
     title = "FarmIQ - Fertilizer Suggestion"
 
     if request.method == "POST":
@@ -332,7 +347,7 @@ def fert_recommend():
             pr = crop_row["P"].iloc[0]
             kr = crop_row["K"].iloc[0]
         except Exception as e:
-            logging.error(f"Error processing fertilizer data for '{crop_name}': {e}")
+            logging.error("Error processing fertilizer data for '%s': %s", crop_name, e)
             flash("❌ An error occurred while processing fertilizer data.")
             return redirect(url_for("fertilizer_recommendation"))
 
@@ -368,9 +383,9 @@ def fert_recommend():
             )
             db.session.add(fert_pred)
             db.session.commit()
-            logging.info(f"✅ Fertilizer prediction saved for session {session_id}")
+            logging.info("✅ Fertilizer prediction saved for session %s", session_id)
         except Exception as e:
-            logging.error(f"❌ Error saving fertilizer prediction: {e}")
+            logging.error("❌ Error saving fertilizer prediction: %s", e)
             db.session.rollback()
 
         return render_template(
@@ -382,6 +397,7 @@ def fert_recommend():
 
 @app.route("/disease-predict", methods=["POST"])
 def disease_prediction():
+    """Handle disease detection prediction from uploaded plant image."""
     title = "FarmIQ - Disease Detection"
 
     if request.method == "POST":
@@ -417,9 +433,9 @@ def disease_prediction():
                 )
                 db.session.add(disease_pred)
                 db.session.commit()
-                logging.info(f"✅ Disease prediction saved for session {session_id}")
+                logging.info("✅ Disease prediction saved for session %s", session_id)
             except Exception as e:
-                logging.error(f"❌ Error saving disease prediction: {e}")
+                logging.error("❌ Error saving disease prediction: %s", e)
                 db.session.rollback()
 
             return render_template(
@@ -431,9 +447,10 @@ def disease_prediction():
             )
 
         except Exception as e:
-            logging.error(f"Error during disease prediction: {e}")
+            logging.error("Error during disease prediction: %s", e)
             flash(
-                f"An error occurred during prediction: {e}. Please try again with a valid image file."
+                f"An error occurred during prediction: {e}. "
+                f"Please try again with a valid image file."
             )
             return redirect(url_for("disease_page"))
 
@@ -522,7 +539,7 @@ def dashboard():
         )
 
     except Exception as e:
-        logging.error(f"Error loading dashboard: {e}")
+        logging.error("Error loading dashboard: %s", e)
         flash("❌ Error loading dashboard data.")
         return redirect(url_for("home"))
 
@@ -549,7 +566,7 @@ def crop_history():
             pagination=pagination
         )
     except Exception as e:
-        logging.error(f"Error loading crop history: {e}")
+        logging.error("Error loading crop history: %s", e)
         flash("❌ Error loading crop history.")
         return redirect(url_for("dashboard"))
 
@@ -576,7 +593,7 @@ def fertilizer_history():
             pagination=pagination
         )
     except Exception as e:
-        logging.error(f"Error loading fertilizer history: {e}")
+        logging.error("Error loading fertilizer history: %s", e)
         flash("❌ Error loading fertilizer history.")
         return redirect(url_for("dashboard"))
 
@@ -603,7 +620,7 @@ def disease_history():
             pagination=pagination
         )
     except Exception as e:
-        logging.error(f"Error loading disease history: {e}")
+        logging.error("Error loading disease history: %s", e)
         flash("❌ Error loading disease history.")
         return redirect(url_for("dashboard"))
 
@@ -624,34 +641,53 @@ def export_csv():
 
         # Write crop predictions
         writer.writerow(['=== CROP PREDICTIONS ==='])
-        writer.writerow(['ID', 'Timestamp', 'Nitrogen', 'Phosphorus', 'Potassium', 'Temperature', 'Humidity', 'pH', 'Rainfall', 'City', 'Predicted Crop'])
-        crop_preds = CropPrediction.query.filter_by(user_session=session_id).order_by(CropPrediction.timestamp.desc()).all()
+        # pylint: disable=line-too-long
+        writer.writerow([
+            'ID', 'Timestamp', 'Nitrogen', 'Phosphorus', 'Potassium',
+            'Temperature', 'Humidity', 'pH', 'Rainfall', 'City', 'Predicted Crop'
+        ])
+        crop_preds = CropPrediction.query.filter_by(
+            user_session=session_id
+        ).order_by(CropPrediction.timestamp.desc()).all()
         for pred in crop_preds:
             writer.writerow([
-                pred.id, pred.timestamp, pred.nitrogen, pred.phosphorus, pred.potassium,
-                pred.temperature, pred.humidity, pred.ph, pred.rainfall, pred.city, pred.predicted_crop
+                pred.id, pred.timestamp, pred.nitrogen, pred.phosphorus,
+                pred.potassium, pred.temperature, pred.humidity, pred.ph,
+                pred.rainfall, pred.city, pred.predicted_crop
             ])
 
         writer.writerow([])  # Empty row
-        
+
         # Write fertilizer predictions
         writer.writerow(['=== FERTILIZER PREDICTIONS ==='])
-        writer.writerow(['ID', 'Timestamp', 'Crop Name', 'Nitrogen', 'Phosphorus', 'Potassium', 'Recommendation'])
-        fert_preds = FertilizerPrediction.query.filter_by(user_session=session_id).order_by(FertilizerPrediction.timestamp.desc()).all()
+        writer.writerow([
+            'ID', 'Timestamp', 'Crop Name', 'Nitrogen', 'Phosphorus',
+            'Potassium', 'Recommendation'
+        ])
+        fert_preds = FertilizerPrediction.query.filter_by(
+            user_session=session_id
+        ).order_by(FertilizerPrediction.timestamp.desc()).all()
         for pred in fert_preds:
             writer.writerow([
-                pred.id, pred.timestamp, pred.crop_name, pred.nitrogen, pred.phosphorus, pred.potassium, pred.recommendation_key
+                pred.id, pred.timestamp, pred.crop_name, pred.nitrogen,
+                pred.phosphorus, pred.potassium, pred.recommendation_key
             ])
 
         writer.writerow([])  # Empty row
-        
+
         # Write disease predictions
         writer.writerow(['=== DISEASE PREDICTIONS ==='])
-        writer.writerow(['ID', 'Timestamp', 'Image Filename', 'Predicted Disease', 'Confidence (%)'])
-        disease_preds = DiseasePrediction.query.filter_by(user_session=session_id).order_by(DiseasePrediction.timestamp.desc()).all()
+        writer.writerow([
+            'ID', 'Timestamp', 'Image Filename', 'Predicted Disease',
+            'Confidence (%)'
+        ])
+        disease_preds = DiseasePrediction.query.filter_by(
+            user_session=session_id
+        ).order_by(DiseasePrediction.timestamp.desc()).all()
         for pred in disease_preds:
             writer.writerow([
-                pred.id, pred.timestamp, pred.image_filename, pred.predicted_disease, pred.confidence
+                pred.id, pred.timestamp, pred.image_filename,
+                pred.predicted_disease, pred.confidence
             ])
 
         # Create response
@@ -661,7 +697,7 @@ def export_csv():
         return output
 
     except Exception as e:
-        logging.error(f"Error exporting CSV: {e}")
+        logging.error("Error exporting CSV: %s", e)
         flash("❌ Error exporting data to CSV.")
         return redirect(url_for("dashboard"))
 
@@ -670,10 +706,12 @@ def export_csv():
 def export_pdf():
     """Export prediction history as PDF report"""
     from flask import make_response
-    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.lib.pagesizes import letter
     from reportlab.lib import colors
     from reportlab.lib.units import inch
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+    from reportlab.platypus import (
+        SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    )
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from io import BytesIO
     from datetime import datetime
@@ -699,18 +737,30 @@ def export_pdf():
         elements.append(Spacer(1, 0.2*inch))
 
         # Report info
-        elements.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
-        elements.append(Paragraph(f"Session ID: {session_id[:8]}...", styles['Normal']))
+        generated_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        elements.append(
+            Paragraph(f"Generated: {generated_time}", styles['Normal'])
+        )
+        elements.append(
+            Paragraph(f"Session ID: {session_id[:8]}...", styles['Normal'])
+        )
         elements.append(Spacer(1, 0.3*inch))
 
         # Statistics
-        total_crops = CropPrediction.query.filter_by(user_session=session_id).count()
-        total_fertilizers = FertilizerPrediction.query.filter_by(user_session=session_id).count()
-        total_diseases = DiseasePrediction.query.filter_by(user_session=session_id).count()
+        total_crops = CropPrediction.query.filter_by(
+            user_session=session_id
+        ).count()
+        total_fertilizers = FertilizerPrediction.query.filter_by(
+            user_session=session_id
+        ).count()
+        total_diseases = DiseasePrediction.query.filter_by(
+            user_session=session_id
+        ).count()
 
         elements.append(Paragraph("Summary Statistics", styles['Heading2']))
         stats_data = [
-            ['Total Predictions', str(total_crops + total_fertilizers + total_diseases)],
+            ['Total Predictions',
+             str(total_crops + total_fertilizers + total_diseases)],
             ['Crop Recommendations', str(total_crops)],
             ['Fertilizer Suggestions', str(total_fertilizers)],
             ['Disease Detections', str(total_diseases)]
@@ -793,7 +843,7 @@ def export_pdf():
         return response
 
     except Exception as e:
-        logging.error(f"Error generating PDF: {e}")
+        logging.error("Error generating PDF: %s", e)
         flash("❌ Error generating PDF report.")
         return redirect(url_for("dashboard"))
 
@@ -804,7 +854,7 @@ if __name__ == "__main__":
     with app.app_context():
         db.create_all()
         logging.info("✅ Database tables created/verified.")
-    
+
     # Use debug mode only if the environment variable DEBUG is set to '1' or 'true'
     debug_mode = os.environ.get("DEBUG", "False").lower() in ("1", "true", "yes")
     app.run(debug=debug_mode)
