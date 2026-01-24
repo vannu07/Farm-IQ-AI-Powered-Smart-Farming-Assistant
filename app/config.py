@@ -1,4 +1,5 @@
 """Configuration module for Farm-IQ application."""
+
 import os
 
 from dotenv import load_dotenv
