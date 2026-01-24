@@ -6,12 +6,14 @@ This script creates the database tables and initializes the database.
 
 import os
 import sys
+
 from sqlalchemy import inspect
 
 # Add the app directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "app"))
 
 from app import app, db  # pylint: disable=wrong-import-position
+
 
 def init_database():
     """Initialize the database by creating all tables"""
@@ -33,6 +35,7 @@ def init_database():
         print(f"\n✓ Total tables in database: {len(tables)}")
         for table in tables:
             print(f"  • {table}")
+
 
 if __name__ == "__main__":
     print("🚀 Initializing FarmIQ Database...")

@@ -1,8 +1,10 @@
 """Database models for storing prediction history."""
+
 # models.py
 # Database models for storing prediction history
 
 from datetime import datetime
+
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
@@ -10,7 +12,8 @@ db = SQLAlchemy()
 
 class CropPrediction(db.Model):
     """Model for storing crop recommendation predictions"""
-    __tablename__ = 'crop_predictions'
+
+    __tablename__ = "crop_predictions"
 
     id = db.Column(db.Integer, primary_key=True)
     user_session = db.Column(db.String(100), nullable=False, index=True)
@@ -28,24 +31,25 @@ class CropPrediction(db.Model):
     def to_dict(self):
         """Convert model to dictionary"""
         return {
-            'id': self.id,
-            'user_session': self.user_session,
-            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
-            'nitrogen': self.nitrogen,
-            'phosphorus': self.phosphorus,
-            'potassium': self.potassium,
-            'temperature': self.temperature,
-            'humidity': self.humidity,
-            'ph': self.ph,
-            'rainfall': self.rainfall,
-            'city': self.city,
-            'predicted_crop': self.predicted_crop
+            "id": self.id,
+            "user_session": self.user_session,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "nitrogen": self.nitrogen,
+            "phosphorus": self.phosphorus,
+            "potassium": self.potassium,
+            "temperature": self.temperature,
+            "humidity": self.humidity,
+            "ph": self.ph,
+            "rainfall": self.rainfall,
+            "city": self.city,
+            "predicted_crop": self.predicted_crop,
         }
 
 
 class FertilizerPrediction(db.Model):
     """Model for storing fertilizer recommendation predictions"""
-    __tablename__ = 'fertilizer_predictions'
+
+    __tablename__ = "fertilizer_predictions"
 
     id = db.Column(db.Integer, primary_key=True)
     user_session = db.Column(db.String(100), nullable=False, index=True)
@@ -59,20 +63,21 @@ class FertilizerPrediction(db.Model):
     def to_dict(self):
         """Convert model to dictionary"""
         return {
-            'id': self.id,
-            'user_session': self.user_session,
-            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
-            'crop_name': self.crop_name,
-            'nitrogen': self.nitrogen,
-            'phosphorus': self.phosphorus,
-            'potassium': self.potassium,
-            'recommendation_key': self.recommendation_key
+            "id": self.id,
+            "user_session": self.user_session,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "crop_name": self.crop_name,
+            "nitrogen": self.nitrogen,
+            "phosphorus": self.phosphorus,
+            "potassium": self.potassium,
+            "recommendation_key": self.recommendation_key,
         }
 
 
 class DiseasePrediction(db.Model):
     """Model for storing disease detection predictions"""
-    __tablename__ = 'disease_predictions'
+
+    __tablename__ = "disease_predictions"
 
     id = db.Column(db.Integer, primary_key=True)
     user_session = db.Column(db.String(100), nullable=False, index=True)
@@ -84,10 +89,10 @@ class DiseasePrediction(db.Model):
     def to_dict(self):
         """Convert model to dictionary"""
         return {
-            'id': self.id,
-            'user_session': self.user_session,
-            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
-            'image_filename': self.image_filename,
-            'predicted_disease': self.predicted_disease,
-            'confidence': self.confidence
+            "id": self.id,
+            "user_session": self.user_session,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "image_filename": self.image_filename,
+            "predicted_disease": self.predicted_disease,
+            "confidence": self.confidence,
         }

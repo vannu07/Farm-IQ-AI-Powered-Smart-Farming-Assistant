@@ -4,6 +4,7 @@ Farm-IQ Flask Application.
 This is the main application file for the Farm-IQ smart farming assistant,
 providing crop recommendations, disease detection, and fertilizer suggestions.
 """
+
 # app.py
 
 # Importing essential libraries and modules
@@ -18,9 +19,10 @@ import numpy as np
 import pandas as pd
 import requests
 import torch
-from flask import Flask, flash, redirect, render_template, request, url_for, session
+from flask import Flask, flash, redirect, render_template, request, session, url_for
 from flask_migrate import Migrate
 from markupsafe import Markup
+from models import CropPrediction, DiseasePrediction, FertilizerPrediction, db
 from PIL import Image
 from torchvision import transforms
 
@@ -28,7 +30,6 @@ from torchvision import transforms
 from utils.disease import disease_dic
 from utils.fertilizer import fertilizer_dic
 from utils.model import ResNet9
-from models import db, CropPrediction, FertilizerPrediction, DiseasePrediction
 
 # ==============================================================================================
 # --- CHANGE: Set up basic logging to see errors in the console
@@ -43,8 +44,10 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
 
 # Database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///farmiq.db')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
+    "DATABASE_URL", "sqlite:///farmiq.db"
+)
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Initialize database
 db.init_app(app)
@@ -139,9 +142,9 @@ def get_or_create_session_id():
     """
     Get or create a unique session ID for the user.
     """
-    if 'user_id' not in session:
-        session['user_id'] = str(uuid.uuid4())
-    return session['user_id']
+    if "user_id" not in session:
+        session["user_id"] = str(uuid.uuid4())
+    return session["user_id"]
 
 
 def weather_fetch(city_name):
@@ -159,7 +162,9 @@ def weather_fetch(city_name):
 
         if "error" in data:
             logging.error(
-                "Weather API error for city '%s': %s", city_name, data['error']['message']
+                "Weather API error for city '%s': %s",
+                city_name,
+                data["error"]["message"],
             )
             return None, None
 
@@ -300,7 +305,7 @@ def crop_prediction():
                 ph=ph,
                 rainfall=rainfall,
                 city=city,
-                predicted_crop=final_prediction
+                predicted_crop=final_prediction,
             )
             db.session.add(crop_pred)
             db.session.commit()
@@ -379,7 +384,7 @@ def fert_recommend():
                 nitrogen=N,
                 phosphorus=P,
                 potassium=K,
-                recommendation_key=key
+                recommendation_key=key,
             )
             db.session.add(fert_pred)
             db.session.commit()
@@ -429,7 +434,7 @@ def disease_prediction():
                     user_session=session_id,
                     image_filename=file.filename,
                     predicted_disease=prediction_class,
-                    confidence=confidence
+                    confidence=confidence,
                 )
                 db.session.add(disease_pred)
                 db.session.commit()
@@ -470,72 +475,105 @@ def dashboard():
 
     try:
         # Get recent predictions
-        crop_predictions = CropPrediction.query.filter_by(
-            user_session=session_id
-        ).order_by(CropPrediction.timestamp.desc()).limit(10).all()
+        crop_predictions = (
+            CropPrediction.query.filter_by(user_session=session_id)
+            .order_by(CropPrediction.timestamp.desc())
+            .limit(10)
+            .all()
+        )
 
-        fertilizer_predictions = FertilizerPrediction.query.filter_by(
-            user_session=session_id
-        ).order_by(FertilizerPrediction.timestamp.desc()).limit(10).all()
+        fertilizer_predictions = (
+            FertilizerPrediction.query.filter_by(user_session=session_id)
+            .order_by(FertilizerPrediction.timestamp.desc())
+            .limit(10)
+            .all()
+        )
 
-        disease_predictions = DiseasePrediction.query.filter_by(
-            user_session=session_id
-        ).order_by(DiseasePrediction.timestamp.desc()).limit(10).all()
+        disease_predictions = (
+            DiseasePrediction.query.filter_by(user_session=session_id)
+            .order_by(DiseasePrediction.timestamp.desc())
+            .limit(10)
+            .all()
+        )
 
         # Calculate statistics
         total_crops = CropPrediction.query.filter_by(user_session=session_id).count()
-        total_fertilizers = FertilizerPrediction.query.filter_by(user_session=session_id).count()
-        total_diseases = DiseasePrediction.query.filter_by(user_session=session_id).count()
+        total_fertilizers = FertilizerPrediction.query.filter_by(
+            user_session=session_id
+        ).count()
+        total_diseases = DiseasePrediction.query.filter_by(
+            user_session=session_id
+        ).count()
 
         # Calculate average nutrient levels for crop predictions
-        avg_nitrogen = db.session.query(db.func.avg(CropPrediction.nitrogen)).filter_by(
-            user_session=session_id
-        ).scalar() or 0
+        avg_nitrogen = (
+            db.session.query(db.func.avg(CropPrediction.nitrogen))
+            .filter_by(user_session=session_id)
+            .scalar()
+            or 0
+        )
 
-        avg_phosphorus = db.session.query(db.func.avg(CropPrediction.phosphorus)).filter_by(
-            user_session=session_id
-        ).scalar() or 0
+        avg_phosphorus = (
+            db.session.query(db.func.avg(CropPrediction.phosphorus))
+            .filter_by(user_session=session_id)
+            .scalar()
+            or 0
+        )
 
-        avg_potassium = db.session.query(db.func.avg(CropPrediction.potassium)).filter_by(
-            user_session=session_id
-        ).scalar() or 0
+        avg_potassium = (
+            db.session.query(db.func.avg(CropPrediction.potassium))
+            .filter_by(user_session=session_id)
+            .scalar()
+            or 0
+        )
 
         # Get most common crop recommendations
         from sqlalchemy import func
-        common_crops = db.session.query(
-            CropPrediction.predicted_crop,
-            func.count(CropPrediction.predicted_crop).label('count')
-        ).filter_by(user_session=session_id).group_by(
-            CropPrediction.predicted_crop
-        ).order_by(func.count(CropPrediction.predicted_crop).desc()).limit(5).all()
+
+        common_crops = (
+            db.session.query(
+                CropPrediction.predicted_crop,
+                func.count(CropPrediction.predicted_crop).label("count"),
+            )
+            .filter_by(user_session=session_id)
+            .group_by(CropPrediction.predicted_crop)
+            .order_by(func.count(CropPrediction.predicted_crop).desc())
+            .limit(5)
+            .all()
+        )
 
         # Get most common diseases
-        common_diseases = db.session.query(
-            DiseasePrediction.predicted_disease,
-            func.count(DiseasePrediction.predicted_disease).label('count')
-        ).filter_by(user_session=session_id).group_by(
-            DiseasePrediction.predicted_disease
-        ).order_by(func.count(DiseasePrediction.predicted_disease).desc()).limit(5).all()
+        common_diseases = (
+            db.session.query(
+                DiseasePrediction.predicted_disease,
+                func.count(DiseasePrediction.predicted_disease).label("count"),
+            )
+            .filter_by(user_session=session_id)
+            .group_by(DiseasePrediction.predicted_disease)
+            .order_by(func.count(DiseasePrediction.predicted_disease).desc())
+            .limit(5)
+            .all()
+        )
 
         stats = {
-            'total_crops': total_crops,
-            'total_fertilizers': total_fertilizers,
-            'total_diseases': total_diseases,
-            'total_predictions': total_crops + total_fertilizers + total_diseases,
-            'avg_nitrogen': round(avg_nitrogen, 2),
-            'avg_phosphorus': round(avg_phosphorus, 2),
-            'avg_potassium': round(avg_potassium, 2),
-            'common_crops': common_crops,
-            'common_diseases': common_diseases
+            "total_crops": total_crops,
+            "total_fertilizers": total_fertilizers,
+            "total_diseases": total_diseases,
+            "total_predictions": total_crops + total_fertilizers + total_diseases,
+            "avg_nitrogen": round(avg_nitrogen, 2),
+            "avg_phosphorus": round(avg_phosphorus, 2),
+            "avg_potassium": round(avg_potassium, 2),
+            "common_crops": common_crops,
+            "common_diseases": common_diseases,
         }
 
         return render_template(
-            'dashboard.html',
+            "dashboard.html",
             title=title,
             crop_predictions=crop_predictions,
             fertilizer_predictions=fertilizer_predictions,
             disease_predictions=disease_predictions,
-            stats=stats
+            stats=stats,
         )
 
     except Exception as e:
@@ -549,21 +587,21 @@ def crop_history():
     """Display crop prediction history with pagination"""
     title = "FarmIQ - Crop History"
     session_id = get_or_create_session_id()
-    page = request.args.get('page', 1, type=int)
+    page = request.args.get("page", 1, type=int)
     per_page = 10
 
     try:
-        pagination = CropPrediction.query.filter_by(
-            user_session=session_id
-        ).order_by(CropPrediction.timestamp.desc()).paginate(
-            page=page, per_page=per_page, error_out=False
+        pagination = (
+            CropPrediction.query.filter_by(user_session=session_id)
+            .order_by(CropPrediction.timestamp.desc())
+            .paginate(page=page, per_page=per_page, error_out=False)
         )
 
         return render_template(
-            'crop_history.html',
+            "crop_history.html",
             title=title,
             predictions=pagination.items,
-            pagination=pagination
+            pagination=pagination,
         )
     except Exception as e:
         logging.error("Error loading crop history: %s", e)
@@ -576,21 +614,21 @@ def fertilizer_history():
     """Display fertilizer prediction history with pagination"""
     title = "FarmIQ - Fertilizer History"
     session_id = get_or_create_session_id()
-    page = request.args.get('page', 1, type=int)
+    page = request.args.get("page", 1, type=int)
     per_page = 10
 
     try:
-        pagination = FertilizerPrediction.query.filter_by(
-            user_session=session_id
-        ).order_by(FertilizerPrediction.timestamp.desc()).paginate(
-            page=page, per_page=per_page, error_out=False
+        pagination = (
+            FertilizerPrediction.query.filter_by(user_session=session_id)
+            .order_by(FertilizerPrediction.timestamp.desc())
+            .paginate(page=page, per_page=per_page, error_out=False)
         )
 
         return render_template(
-            'fertilizer_history.html',
+            "fertilizer_history.html",
             title=title,
             predictions=pagination.items,
-            pagination=pagination
+            pagination=pagination,
         )
     except Exception as e:
         logging.error("Error loading fertilizer history: %s", e)
@@ -603,21 +641,21 @@ def disease_history():
     """Display disease prediction history with pagination"""
     title = "FarmIQ - Disease History"
     session_id = get_or_create_session_id()
-    page = request.args.get('page', 1, type=int)
+    page = request.args.get("page", 1, type=int)
     per_page = 10
 
     try:
-        pagination = DiseasePrediction.query.filter_by(
-            user_session=session_id
-        ).order_by(DiseasePrediction.timestamp.desc()).paginate(
-            page=page, per_page=per_page, error_out=False
+        pagination = (
+            DiseasePrediction.query.filter_by(user_session=session_id)
+            .order_by(DiseasePrediction.timestamp.desc())
+            .paginate(page=page, per_page=per_page, error_out=False)
         )
 
         return render_template(
-            'disease_history.html',
+            "disease_history.html",
             title=title,
             predictions=pagination.items,
-            pagination=pagination
+            pagination=pagination,
         )
     except Exception as e:
         logging.error("Error loading disease history: %s", e)
@@ -628,9 +666,10 @@ def disease_history():
 @app.route("/export/csv")
 def export_csv():
     """Export all prediction history as CSV"""
-    from flask import make_response
     import csv
     from io import StringIO
+
+    from flask import make_response
 
     session_id = get_or_create_session_id()
 
@@ -640,59 +679,106 @@ def export_csv():
         writer = csv.writer(si)
 
         # Write crop predictions
-        writer.writerow(['=== CROP PREDICTIONS ==='])
+        writer.writerow(["=== CROP PREDICTIONS ==="])
         # pylint: disable=line-too-long
-        writer.writerow([
-            'ID', 'Timestamp', 'Nitrogen', 'Phosphorus', 'Potassium',
-            'Temperature', 'Humidity', 'pH', 'Rainfall', 'City', 'Predicted Crop'
-        ])
-        crop_preds = CropPrediction.query.filter_by(
-            user_session=session_id
-        ).order_by(CropPrediction.timestamp.desc()).all()
+        writer.writerow(
+            [
+                "ID",
+                "Timestamp",
+                "Nitrogen",
+                "Phosphorus",
+                "Potassium",
+                "Temperature",
+                "Humidity",
+                "pH",
+                "Rainfall",
+                "City",
+                "Predicted Crop",
+            ]
+        )
+        crop_preds = (
+            CropPrediction.query.filter_by(user_session=session_id)
+            .order_by(CropPrediction.timestamp.desc())
+            .all()
+        )
         for pred in crop_preds:
-            writer.writerow([
-                pred.id, pred.timestamp, pred.nitrogen, pred.phosphorus,
-                pred.potassium, pred.temperature, pred.humidity, pred.ph,
-                pred.rainfall, pred.city, pred.predicted_crop
-            ])
+            writer.writerow(
+                [
+                    pred.id,
+                    pred.timestamp,
+                    pred.nitrogen,
+                    pred.phosphorus,
+                    pred.potassium,
+                    pred.temperature,
+                    pred.humidity,
+                    pred.ph,
+                    pred.rainfall,
+                    pred.city,
+                    pred.predicted_crop,
+                ]
+            )
 
         writer.writerow([])  # Empty row
 
         # Write fertilizer predictions
-        writer.writerow(['=== FERTILIZER PREDICTIONS ==='])
-        writer.writerow([
-            'ID', 'Timestamp', 'Crop Name', 'Nitrogen', 'Phosphorus',
-            'Potassium', 'Recommendation'
-        ])
-        fert_preds = FertilizerPrediction.query.filter_by(
-            user_session=session_id
-        ).order_by(FertilizerPrediction.timestamp.desc()).all()
+        writer.writerow(["=== FERTILIZER PREDICTIONS ==="])
+        writer.writerow(
+            [
+                "ID",
+                "Timestamp",
+                "Crop Name",
+                "Nitrogen",
+                "Phosphorus",
+                "Potassium",
+                "Recommendation",
+            ]
+        )
+        fert_preds = (
+            FertilizerPrediction.query.filter_by(user_session=session_id)
+            .order_by(FertilizerPrediction.timestamp.desc())
+            .all()
+        )
         for pred in fert_preds:
-            writer.writerow([
-                pred.id, pred.timestamp, pred.crop_name, pred.nitrogen,
-                pred.phosphorus, pred.potassium, pred.recommendation_key
-            ])
+            writer.writerow(
+                [
+                    pred.id,
+                    pred.timestamp,
+                    pred.crop_name,
+                    pred.nitrogen,
+                    pred.phosphorus,
+                    pred.potassium,
+                    pred.recommendation_key,
+                ]
+            )
 
         writer.writerow([])  # Empty row
 
         # Write disease predictions
-        writer.writerow(['=== DISEASE PREDICTIONS ==='])
-        writer.writerow([
-            'ID', 'Timestamp', 'Image Filename', 'Predicted Disease',
-            'Confidence (%)'
-        ])
-        disease_preds = DiseasePrediction.query.filter_by(
-            user_session=session_id
-        ).order_by(DiseasePrediction.timestamp.desc()).all()
+        writer.writerow(["=== DISEASE PREDICTIONS ==="])
+        writer.writerow(
+            ["ID", "Timestamp", "Image Filename", "Predicted Disease", "Confidence (%)"]
+        )
+        disease_preds = (
+            DiseasePrediction.query.filter_by(user_session=session_id)
+            .order_by(DiseasePrediction.timestamp.desc())
+            .all()
+        )
         for pred in disease_preds:
-            writer.writerow([
-                pred.id, pred.timestamp, pred.image_filename,
-                pred.predicted_disease, pred.confidence
-            ])
+            writer.writerow(
+                [
+                    pred.id,
+                    pred.timestamp,
+                    pred.image_filename,
+                    pred.predicted_disease,
+                    pred.confidence,
+                ]
+            )
 
         # Create response
         output = make_response(si.getvalue())
-        output.headers["Content-Disposition"] = "attachment; filename=farmiq_predictions.csv"
+        output.headers["Content-Disposition"] = (
+            "attachment; filename=farmiq_predictions.csv"
+        )
         output.headers["Content-type"] = "text/csv"
         return output
 
@@ -705,16 +791,21 @@ def export_csv():
 @app.route("/export/pdf")
 def export_pdf():
     """Export prediction history as PDF report"""
+    from datetime import datetime
+    from io import BytesIO
+
     from flask import make_response
-    from reportlab.lib.pagesizes import letter
     from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import inch
     from reportlab.platypus import (
-        SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
     )
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from io import BytesIO
-    from datetime import datetime
 
     session_id = get_or_create_session_id()
 
@@ -726,30 +817,24 @@ def export_pdf():
 
         # Title
         title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
+            "CustomTitle",
+            parent=styles["Heading1"],
             fontSize=24,
-            textColor=colors.HexColor('#2E7D32'),
+            textColor=colors.HexColor("#2E7D32"),
             spaceAfter=30,
-            alignment=1  # Center
+            alignment=1,  # Center
         )
         elements.append(Paragraph("FarmIQ Prediction Report", title_style))
-        elements.append(Spacer(1, 0.2*inch))
+        elements.append(Spacer(1, 0.2 * inch))
 
         # Report info
-        generated_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        elements.append(
-            Paragraph(f"Generated: {generated_time}", styles['Normal'])
-        )
-        elements.append(
-            Paragraph(f"Session ID: {session_id[:8]}...", styles['Normal'])
-        )
-        elements.append(Spacer(1, 0.3*inch))
+        generated_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        elements.append(Paragraph(f"Generated: {generated_time}", styles["Normal"]))
+        elements.append(Paragraph(f"Session ID: {session_id[:8]}...", styles["Normal"]))
+        elements.append(Spacer(1, 0.3 * inch))
 
         # Statistics
-        total_crops = CropPrediction.query.filter_by(
-            user_session=session_id
-        ).count()
+        total_crops = CropPrediction.query.filter_by(user_session=session_id).count()
         total_fertilizers = FertilizerPrediction.query.filter_by(
             user_session=session_id
         ).count()
@@ -757,79 +842,109 @@ def export_pdf():
             user_session=session_id
         ).count()
 
-        elements.append(Paragraph("Summary Statistics", styles['Heading2']))
+        elements.append(Paragraph("Summary Statistics", styles["Heading2"]))
         stats_data = [
-            ['Total Predictions',
-             str(total_crops + total_fertilizers + total_diseases)],
-            ['Crop Recommendations', str(total_crops)],
-            ['Fertilizer Suggestions', str(total_fertilizers)],
-            ['Disease Detections', str(total_diseases)]
+            [
+                "Total Predictions",
+                str(total_crops + total_fertilizers + total_diseases),
+            ],
+            ["Crop Recommendations", str(total_crops)],
+            ["Fertilizer Suggestions", str(total_fertilizers)],
+            ["Disease Detections", str(total_diseases)],
         ]
-        stats_table = Table(stats_data, colWidths=[3*inch, 2*inch])
-        stats_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), colors.beige),
-            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 12),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
+        stats_table = Table(stats_data, colWidths=[3 * inch, 2 * inch])
+        stats_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), colors.beige),
+                    ("TEXTCOLOR", (0, 0), (-1, -1), colors.black),
+                    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 12),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+                    ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                ]
+            )
+        )
         elements.append(stats_table)
-        elements.append(Spacer(1, 0.5*inch))
+        elements.append(Spacer(1, 0.5 * inch))
 
         # Recent Crop Predictions
         if total_crops > 0:
-            elements.append(Paragraph("Recent Crop Recommendations", styles['Heading2']))
-            crop_preds = CropPrediction.query.filter_by(user_session=session_id).order_by(
-                CropPrediction.timestamp.desc()
-            ).limit(5).all()
-            crop_data = [['Date', 'Crop', 'N-P-K', 'City']]
+            elements.append(
+                Paragraph("Recent Crop Recommendations", styles["Heading2"])
+            )
+            crop_preds = (
+                CropPrediction.query.filter_by(user_session=session_id)
+                .order_by(CropPrediction.timestamp.desc())
+                .limit(5)
+                .all()
+            )
+            crop_data = [["Date", "Crop", "N-P-K", "City"]]
             for pred in crop_preds:
-                crop_data.append([
-                    pred.timestamp.strftime('%Y-%m-%d'),
-                    pred.predicted_crop,
-                    f"{pred.nitrogen}-{pred.phosphorus}-{pred.potassium}",
-                    pred.city or 'N/A'
-                ])
-            crop_table = Table(crop_data, colWidths=[1.5*inch, 2*inch, 1.5*inch, 1.5*inch])
-            crop_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
-            ]))
+                crop_data.append(
+                    [
+                        pred.timestamp.strftime("%Y-%m-%d"),
+                        pred.predicted_crop,
+                        f"{pred.nitrogen}-{pred.phosphorus}-{pred.potassium}",
+                        pred.city or "N/A",
+                    ]
+                )
+            crop_table = Table(
+                crop_data, colWidths=[1.5 * inch, 2 * inch, 1.5 * inch, 1.5 * inch]
+            )
+            crop_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                        ("FONTSIZE", (0, 0), (-1, 0), 10),
+                        ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+                        ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
+                        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                    ]
+                )
+            )
             elements.append(crop_table)
-            elements.append(Spacer(1, 0.3*inch))
+            elements.append(Spacer(1, 0.3 * inch))
 
         # Recent Disease Predictions
         if total_diseases > 0:
-            elements.append(Paragraph("Recent Disease Detections", styles['Heading2']))
-            disease_preds = DiseasePrediction.query.filter_by(user_session=session_id).order_by(
-                DiseasePrediction.timestamp.desc()
-            ).limit(5).all()
-            disease_data = [['Date', 'Disease', 'Confidence']]
+            elements.append(Paragraph("Recent Disease Detections", styles["Heading2"]))
+            disease_preds = (
+                DiseasePrediction.query.filter_by(user_session=session_id)
+                .order_by(DiseasePrediction.timestamp.desc())
+                .limit(5)
+                .all()
+            )
+            disease_data = [["Date", "Disease", "Confidence"]]
             for pred in disease_preds:
-                disease_data.append([
-                    pred.timestamp.strftime('%Y-%m-%d'),
-                    pred.predicted_disease[:30],
-                    f"{pred.confidence:.1f}%"
-                ])
-            disease_table = Table(disease_data, colWidths=[1.5*inch, 3.5*inch, 1.5*inch])
-            disease_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
-            ]))
+                disease_data.append(
+                    [
+                        pred.timestamp.strftime("%Y-%m-%d"),
+                        pred.predicted_disease[:30],
+                        f"{pred.confidence:.1f}%",
+                    ]
+                )
+            disease_table = Table(
+                disease_data, colWidths=[1.5 * inch, 3.5 * inch, 1.5 * inch]
+            )
+            disease_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                        ("FONTSIZE", (0, 0), (-1, 0), 10),
+                        ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+                        ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
+                        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                    ]
+                )
+            )
             elements.append(disease_table)
 
         # Build PDF
@@ -838,8 +953,10 @@ def export_pdf():
         buffer.close()
 
         response = make_response(pdf_data)
-        response.headers['Content-Type'] = 'application/pdf'
-        response.headers['Content-Disposition'] = 'attachment; filename=farmiq_report.pdf'
+        response.headers["Content-Type"] = "application/pdf"
+        response.headers["Content-Disposition"] = (
+            "attachment; filename=farmiq_report.pdf"
+        )
         return response
 
     except Exception as e:

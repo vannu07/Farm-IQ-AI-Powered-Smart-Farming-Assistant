@@ -1,4 +1,5 @@
 """Neural network model architecture for plant disease detection."""
+
 from torch import nn
 
 
