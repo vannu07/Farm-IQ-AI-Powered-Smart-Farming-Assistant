@@ -24,6 +24,7 @@ from flask_migrate import Migrate
 from markupsafe import Markup
 from models import CropPrediction, DiseasePrediction, FertilizerPrediction, db
 from PIL import Image
+from sqlalchemy import func
 from torchvision import transforms
 
 # --- CHANGE: Import custom modules more cleanly
@@ -528,8 +529,6 @@ def dashboard():
         )
 
         # Get most common crop recommendations
-        from sqlalchemy import func
-
         common_crops = (
             db.session.query(
                 CropPrediction.predicted_crop,
