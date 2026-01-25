@@ -1,4 +1,5 @@
 """Disease information dictionary for plant disease identification and management."""
+
 # pylint: disable=line-too-long,duplicate-key
 disease_dic = {
     "Apple___Apple_scab": """ <b>Crop</b>: Apple <br/>Disease: Apple Scab<br/>

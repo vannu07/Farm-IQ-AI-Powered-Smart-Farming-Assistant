@@ -1,4 +1,5 @@
 """Fertilizer recommendation dictionary for soil nutrient management."""
+
 # pylint: disable=line-too-long
 fertilizer_dic = {
     "NHigh": """The N value of soil is high and might give rise to weeds.
